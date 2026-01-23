@@ -39,6 +39,15 @@ def design_binders():
 
 result = design_binders()
 print(f"Experiment: {result.experiment_url}")
+
+# Additional decorator parameters:
+# @lab.experiment(
+#     target="PD-L1",
+#     auto_confirm=True,              # Auto-confirm quote
+#     experiment_type="screening",    # screening/affinity/thermostability/fluorescence/expression
+#     method="bli",                   # bli/spr
+#     n_replicates=3,                 # Number of replicates
+# )
 ```
 
 ---
@@ -59,6 +68,7 @@ Set your credentials as environment variables:
 ```bash
 export ADAPTYV_API_KEY=your_api_key
 export ADAPTYV_API_URL=https://api.adaptyvbio.com
+export ADAPTYV_ORGANIZATION_ID=your_org_id  # Optional
 ```
 
 Or configure programmatically:
@@ -66,7 +76,11 @@ Or configure programmatically:
 ```python
 from adaptyv import Lab
 
-lab = Lab.setup(api_key="your_api_key", base_url="https://api.adaptyvbio.com")
+lab = Lab.setup(
+    api_key="your_api_key",
+    base_url="https://api.adaptyvbio.com",
+    organization_id="your_org_id",  # Optional
+)
 ```
 
 ---
@@ -135,8 +149,8 @@ client = FoundryClient(api_key="...", base_url="https://api.adaptyvbio.com")
 
 # Retrieve results for a completed experiment
 results = client.experiments.get_results("experiment-uuid")
-for sequence_name, data in results.items():
-    print(f"{sequence_name}: {data}")
+for result in results.results:
+    print(f"{result.title}: {result.result_type}")
 ```
 
 ---
@@ -159,6 +173,15 @@ estimate = client.experiments.cost_estimate({
     "target_id": "...",
     "sequences": {"seq1": "MVKVG..."},
 })
+
+# Get experiment quote
+quote = client.experiments.get_quote("experiment-uuid")
+
+# Get invoice
+invoice = client.experiments.get_invoice("experiment-uuid")
+
+# List status updates
+updates = client.experiments.list_updates("experiment-uuid")
 ```
 
 ---
