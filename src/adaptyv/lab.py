@@ -1,18 +1,24 @@
-"""High-level Lab interface for Adaptyv Lab SDK."""
+"""High-level Lab interface for Adaptyv SDK."""
 
 from __future__ import annotations
 
 import time
 from collections.abc import Callable, Iterator
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from adaptyv.client.foundry import FoundryClientProtocol, get_client
-from adaptyv.config import FoundrySettings, get_cost_estimate
-from adaptyv.exceptions import NotFoundError, ValidationError
-from adaptyv.types.generated import ExperimentSpec, ExperimentType, Method
-from adaptyv.types.internal import ExperimentResult, ExperimentStatus
-from adaptyv.validation import UUID_RE, validate_sequences, validate_url, validate_uuid
+from adaptyv.config import AdaptyvConfig
+from adaptyv.exceptions import AuthenticationError, NotFoundError, ValidationError
+from adaptyv.types.generated import ExperimentSpec, ExperimentStatus, ExperimentType, Method
+from adaptyv.types.internal import ExperimentResult
+from adaptyv.validation import (
+    UUID_RE,
+    normalize_sequences,
+    validate_sequences,
+    validate_url,
+    validate_uuid,
+)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -23,7 +29,7 @@ class Lab:
     Usage:
         lab = Lab.setup()  # Reads ADAPTYV_API_KEY from env
 
-        @lab.experiment(target="PD-L1", workflow="bindcraft")
+        @lab.experiment(target="PD-L1")
         def design_binders():
             return ["MVKVGVNG...", "MKVLVAG..."]
 
@@ -36,17 +42,17 @@ class Lab:
         # Client is automatically closed
     """
 
-    def __init__(self, client: FoundryClientProtocol, settings: FoundrySettings):
+    def __init__(self, client: FoundryClientProtocol, config: AdaptyvConfig):
         """Initialize Lab with a configured client.
 
         Use Lab.setup() instead for automatic configuration.
 
         Args:
             client: Configured FoundryClient instance
-            settings: FoundrySettings with configuration
+            config: AdaptyvConfig with configuration
         """
         self._client = client
-        self._settings = settings
+        self._config = config
 
     @classmethod
     def setup(
@@ -60,67 +66,76 @@ class Lab:
 
         Configuration is loaded automatically from environment variables:
         - ADAPTYV_API_KEY: API key (required)
-        - ADAPTYV_API_TYPE: "public" or "internal" API selection
         - ADAPTYV_API_URL: Custom API URL
         - ADAPTYV_ORGANIZATION_ID: Default organization
 
         Args:
             api_key: Foundry API key. If not provided, reads from env.
-            base_url: Optional custom API URL (overrides ADAPTYV_API_TYPE).
+            base_url: Optional custom API URL.
             organization_id: Organization UUID. If not provided, reads from env.
 
         Returns:
             Configured Lab instance.
 
         Raises:
-            ValueError: If ADAPTYV_API_KEY is not set and api_key not provided.
+            AuthenticationError: If ADAPTYV_API_KEY is not set and api_key not provided.
         """
-        # Load settings from environment (picks up ADAPTYV_API_TYPE, etc.)
-        settings = FoundrySettings()
+        config = AdaptyvConfig()
 
         # Override with explicit args
-        if api_key:
-            settings = FoundrySettings(
-                api_key=api_key,
-                api_url=base_url or settings.api_url,
-                api_type=settings.api_type,
-                organization_id=organization_id or settings.organization_id,
-                timeout=settings.timeout,
-                mock_mode=settings.mock_mode,
-            )
-        elif organization_id:
-            settings = FoundrySettings(
-                api_key=settings.api_key,
-                api_url=base_url or settings.api_url,
-                api_type=settings.api_type,
-                organization_id=organization_id,
-                timeout=settings.timeout,
-                mock_mode=settings.mock_mode,
+        final_api_key = api_key or config.api_key
+        final_base_url = base_url or config.api_url
+        final_org_id = organization_id or config.organization_id
+
+        if not final_api_key:
+            raise AuthenticationError(
+                "ADAPTYV_API_KEY not set. Set environment variable or pass api_key parameter."
             )
 
-        # Resolve base URL (custom url > api_type-based url)
-        resolved_base_url = base_url or settings.get_base_url()
-
-        if not settings.api_key:
-            raise ValueError(
-                "ADAPTYV_API_KEY environment variable not set. "
-                "Set it or pass api_key to Lab.setup()"
+        if not final_base_url:
+            raise ValidationError(
+                "ADAPTYV_API_URL not set. Set environment variable or pass base_url parameter."
             )
 
-        # Use get_client() to get the appropriate client type
-        client = get_client(
-            api_key=settings.api_key,
-            base_url=resolved_base_url,
-            settings=settings,
+        # Create config with final values
+        final_config = AdaptyvConfig(
+            api_key=final_api_key,
+            api_url=final_base_url,
+            organization_id=final_org_id,
+            timeout=config.timeout,
+            mock_mode=config.mock_mode,
         )
 
-        return cls(client, settings)
+        client = get_client(
+            api_key=final_api_key,
+            base_url=final_base_url,
+            settings=final_config,
+        )
+
+        return cls(client, final_config)
+
+    def _build_spec(
+        self,
+        sequences: dict[str, str],
+        *,
+        target_id: str | None,
+        experiment_type: str,
+        method: str,
+        n_replicates: int,
+    ) -> ExperimentSpec:
+        """Build ExperimentSpec from parameters."""
+        return ExperimentSpec(  # type: ignore[call-arg]
+            experiment_type=ExperimentType(experiment_type),
+            method=Method(method),
+            target_id=target_id,
+            sequences=sequences,  # type: ignore[arg-type]
+            n_replicates=n_replicates,
+        )
 
     def experiment(
         self,
         *,
         target: str,
-        workflow: str = "bindcraft",
         auto_confirm: bool = False,
         webhook_url: str | None = None,
         experiment_name: str | None = None,
@@ -132,7 +147,6 @@ class Lab:
 
         Args:
             target: Target name or ID for binding experiments
-            workflow: Design workflow ("bindcraft" or "germinal")
             auto_confirm: Automatically confirm quote (requires pre-approved budget)
             webhook_url: Webhook URL for status updates
             experiment_name: Custom experiment name
@@ -144,7 +158,7 @@ class Lab:
             Decorator that wraps design function to create experiment.
 
         Example:
-            @lab.experiment(target="PD-L1", workflow="bindcraft")
+            @lab.experiment(target="PD-L1")
             def design_pdl1():
                 return ["MVKVGVNG...", "MKVLVAG..."]
 
@@ -165,18 +179,16 @@ class Lab:
                         f"Design function must return list of sequences, got {type(sequences)}"
                     )
 
-                # Build sequences dict
-                seq_dict = {f"{workflow}_design_{i}": seq for i, seq in enumerate(sequences)}
+                seq_dict = normalize_sequences(cast(list[str], sequences))
 
                 # Create experiment name
-                name = experiment_name or f"{workflow}_{target}_{len(sequences)}designs"
+                name = experiment_name or f"{target}_{len(sequences)}designs"
 
-                # Build experiment spec
-                spec = ExperimentSpec(
-                    experiment_type=ExperimentType(experiment_type),
-                    method=Method(method),
+                spec = self._build_spec(
+                    seq_dict,
                     target_id=target if UUID_RE.match(target) else None,
-                    sequences=seq_dict,
+                    experiment_type=experiment_type,
+                    method=method,
                     n_replicates=n_replicates,
                 )
 
@@ -184,7 +196,7 @@ class Lab:
                 response = self._client.experiments.create(
                     name=name,
                     experiment_spec=spec,
-                    organization_id=self._settings.organization_id,
+                    organization_id=self._config.organization_id,
                     webhook_url=webhook_url,
                 )
 
@@ -195,8 +207,7 @@ class Lab:
                 result = ExperimentResult(
                     experiment_id=response.experiment_id,
                     experiment_url=exp_info.experiment_url,
-                    status=ExperimentStatus(exp_info.status.value),
-                    cost_estimate=get_cost_estimate(workflow, len(sequences)),
+                    status=exp_info.status,
                     sequences_submitted=len(sequences),
                 )
 
@@ -244,23 +255,19 @@ class Lab:
         if target_id:
             validate_uuid(target_id, "target_id")
 
-        if isinstance(sequences, list):
-            seq_dict = {f"design_{i}": seq for i, seq in enumerate(sequences)}
-        else:
-            seq_dict = sequences
-
-        spec = ExperimentSpec(
-            experiment_type=ExperimentType(experiment_type),
-            method=Method(method),
+        seq_dict = normalize_sequences(sequences)
+        spec = self._build_spec(
+            seq_dict,
             target_id=target_id,
-            sequences=seq_dict,
+            experiment_type=experiment_type,
+            method=method,
             n_replicates=n_replicates,
         )
 
         response = self._client.experiments.create(
             name=name,
             experiment_spec=spec,
-            organization_id=self._settings.organization_id,
+            organization_id=self._config.organization_id,
             webhook_url=webhook_url,
         )
 
@@ -269,7 +276,7 @@ class Lab:
         return ExperimentResult(
             experiment_id=response.experiment_id,
             experiment_url=exp_info.experiment_url,
-            status=ExperimentStatus(exp_info.status.value),
+            status=exp_info.status,
             sequences_submitted=len(seq_dict),
         )
 
@@ -288,7 +295,7 @@ class Lab:
         return ExperimentResult(
             experiment_id=exp_info.id,
             experiment_url=exp_info.experiment_url,
-            status=ExperimentStatus(exp_info.status.value),
+            status=exp_info.status,
             results_status=exp_info.results_status.value,
         )
 
@@ -329,7 +336,7 @@ class Lab:
         return ExperimentResult(
             experiment_id=exp_info.id,
             experiment_url=exp_info.experiment_url,
-            status=ExperimentStatus(exp_info.status.value),
+            status=exp_info.status,
             confirmed_at=confirm_response.confirmed_at,
         )
 
@@ -367,29 +374,29 @@ class Lab:
             "The Stripe quote may still be generating. Try again in a few seconds."
         )
 
-    def list_targets(self, *, page: int = 1, per_page: int = 50) -> list[dict[str, Any]]:
+    def list_targets(self, *, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
         """List available targets from catalog.
 
         For single page of results. Use list_all_targets() to iterate through all.
 
         Args:
-            page: Page number (1-indexed)
-            per_page: Items per page (max 50)
+            limit: Maximum number of targets to return (max 50)
+            offset: Number of targets to skip
 
         Returns:
             List of target dicts
         """
-        result = self._client.targets.list(page=page, per_page=per_page)
+        result = self._client.targets.list(limit=limit, offset=offset)
         return [t.model_dump() for t in result.targets]
 
-    def list_all_targets(self, *, per_page: int = 50) -> Iterator[dict[str, Any]]:
+    def list_all_targets(self, *, limit: int = 50) -> Iterator[dict[str, Any]]:
         """Iterate through all targets from catalog with automatic pagination.
 
         This method handles pagination automatically, yielding one target at a time.
         Rate limits are handled by the underlying client's retry logic.
 
         Args:
-            per_page: Items per page (max 50)
+            limit: Items per page (max 50)
 
         Yields:
             Target dicts one at a time
@@ -398,16 +405,16 @@ class Lab:
             for target in lab.list_all_targets():
                 print(target["name"])
         """
-        page = 1
+        offset = 0
         while True:
-            result = self._client.targets.list(page=page, per_page=per_page)
+            result = self._client.targets.list(limit=limit, offset=offset)
             for target in result.targets:
                 yield target.model_dump()
 
             # Check if we've fetched all targets
-            if len(result.targets) < per_page:
+            if len(result.targets) < limit:
                 break
-            page += 1
+            offset += limit
 
     def search_targets(self, query: str, *, limit: int = 50) -> list[dict[str, Any]]:
         """Search targets by name.

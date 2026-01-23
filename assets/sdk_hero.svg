@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 200" width="560" height="200">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap');
+
+    .container {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0D1116;
+      color: #F8FAFC;
+      padding: 32px 40px;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .logo {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #36B7F6;
+      margin: 0;
+      letter-spacing: 0.12em;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #94A3B8;
+      margin: 0 0 28px 0;
+    }
+
+    .flow-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-box {
+      background: #1C2432;
+      border: 1px solid #36B7F6;
+      border-radius: 6px;
+      padding: 10px 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #F8FAFC;
+      opacity: 0;
+    }
+
+    .step-label {
+      font-size: 10px;
+      color: #64748B;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      opacity: 0;
+    }
+
+    .arrow {
+      color: #36B7F6;
+      font-size: 18px;
+      margin: 0 12px;
+      opacity: 0;
+    }
+
+    /* Staggered animations for flow steps - 8s cycle */
+    @keyframes flow-1 {
+      0%, 5% { opacity: 0; transform: translateY(10px); }
+      10%, 85% { opacity: 1; transform: translateY(0); }
+      90%, 100% { opacity: 0; transform: translateY(0); }
+    }
+    @keyframes flow-2 {
+      0%, 15% { opacity: 0; transform: translateY(10px); }
+      20%, 85% { opacity: 1; transform: translateY(0); }
+      90%, 100% { opacity: 0; transform: translateY(0); }
+    }
+    @keyframes flow-3 {
+      0%, 25% { opacity: 0; transform: translateY(10px); }
+      30%, 85% { opacity: 1; transform: translateY(0); }
+      90%, 100% { opacity: 0; transform: translateY(0); }
+    }
+    @keyframes flow-4 {
+      0%, 35% { opacity: 0; transform: translateY(10px); }
+      40%, 85% { opacity: 1; transform: translateY(0); }
+      90%, 100% { opacity: 0; transform: translateY(0); }
+    }
+
+    @keyframes arrow-1 {
+      0%, 12% { opacity: 0; }
+      17%, 85% { opacity: 1; }
+      90%, 100% { opacity: 0; }
+    }
+    @keyframes arrow-2 {
+      0%, 22% { opacity: 0; }
+      27%, 85% { opacity: 1; }
+      90%, 100% { opacity: 0; }
+    }
+    @keyframes arrow-3 {
+      0%, 32% { opacity: 0; }
+      37%, 85% { opacity: 1; }
+      90%, 100% { opacity: 0; }
+    }
+
+    .step-1 .step-box, .step-1 .step-label { animation: flow-1 8s infinite; }
+    .step-2 .step-box, .step-2 .step-label { animation: flow-2 8s infinite; }
+    .step-3 .step-box, .step-3 .step-label { animation: flow-3 8s infinite; }
+    .step-4 .step-box, .step-4 .step-label { animation: flow-4 8s infinite; }
+
+    .arrow-1 { animation: arrow-1 8s infinite; }
+    .arrow-2 { animation: arrow-2 8s infinite; }
+    .arrow-3 { animation: arrow-3 8s infinite; }
+
+    @keyframes glow-pulse {
+      0%, 100% { filter: drop-shadow(0 0 4px rgba(54,183,246,0.3)); }
+      50% { filter: drop-shadow(0 0 8px rgba(54,183,246,0.6)); }
+    }
+
+    .logo { animation: glow-pulse 3s ease-in-out infinite; }
+
+  </style>
+  <foreignObject width="100%" height="100%">
+    <div xmlns="http://www.w3.org/1999/xhtml" class="container">
+      <div class="header">
+        <svg class="logo" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+          <path d="M103.974 51.5755C112.069 49.1077 120.192 49.5161 128.361 52.7933L170.148 71.039C182.638 76.2096 188.611 86.0054 188.07 100.433L183.813 198.449L195.333 191.813L224.561 174.984C230.429 170.682 233.832 165.325 234.823 158.53C235.938 151.12 240.709 136.474 233.097 132.406L202.102 117.082C201.153 116.613 200.553 115.646 200.553 114.587V104.528C200.553 102.475 202.698 101.129 204.546 102.021L242.339 120.266C251.081 124.208 255.115 131.651 254.425 142.608L249.953 167.204C248.012 175.578 243.463 182.034 236.321 186.561L192.802 213.071C191.333 213.92 189.872 214.673 188.42 215.311C177.478 220.126 166.957 218.889 156.868 211.595L88.0936 154.547C85.8889 152.146 84.1651 149.553 83.0293 146.813L81.6293 147.431C78.0516 148.733 76.4359 151.871 76.7879 156.847C76.8659 157.93 77.0384 159.114 77.3017 160.378L85.4487 204.584C87.0263 210.835 88.9846 215.255 91.323 217.85L101.917 228.449C106.178 232.194 111.023 232.679 116.457 229.903L141.055 215.75C142.085 215.157 143.377 215.283 144.273 216.065L152.032 222.833C153.458 224.077 153.254 226.351 151.629 227.321L122.057 244.974C109.636 252.266 99.575 251.6 91.2714 243.264L77.6796 228.519C73.9494 224.38 70.8428 217.342 68.3338 207.384L58.8358 162.496C55.1244 148.138 58.9793 138.444 72.4603 132.572L170.142 93.3948C168.702 90.9457 166.645 89.0147 163.966 87.6156L159.845 85.6339L129.32 70.9601C121.151 67.6793 113.445 66.8244 105.35 69.2884L98.1271 71.8056C92.2737 74.04 90.5124 76.9639 91.4399 82.8802L94.4257 109.613C94.5583 110.8 93.9204 111.942 92.8261 112.421C89.3589 113.939 85.1984 115.537 82.3851 116.587C80.725 117.206 78.9362 116.114 78.7035 114.358L73.95 78.4792C72.0393 66.1276 76.438 60.1019 86.6746 56.754L103.974 51.5755ZM96.14 141.051L96.4091 141.657C97.8044 144.649 99.8505 147.091 102.46 148.942L164.833 197.101C165.705 197.768 166.605 198.349 167.53 198.835C169.641 197.357 170.732 195.161 170.906 192.278L172.564 107.446L96.14 141.051Z" fill="#36B7F6"/>
+        </svg>
+        <h1 class="title">ADAPTYV SDK</h1>
+      </div>
+      <p class="subtitle">Python SDK for AI-powered protein experiments</p>
+
+      <div class="flow-container">
+        <div class="step step-1">
+          <div class="step-box">Configure</div>
+          <div class="step-label">Define experiment</div>
+        </div>
+        <span class="arrow arrow-1">&#x2192;</span>
+        <div class="step step-2">
+          <div class="step-box">Submit</div>
+          <div class="step-label">Send sequences</div>
+        </div>
+        <span class="arrow arrow-2">&#x2192;</span>
+        <div class="step step-3">
+          <div class="step-box">Lab</div>
+          <div class="step-label">Run assays</div>
+        </div>
+        <span class="arrow arrow-3">&#x2192;</span>
+        <div class="step step-4">
+          <div class="step-box">Results</div>
+          <div class="step-label">Get measurements</div>
+        </div>
+      </div>
+    </div>
+  </foreignObject>
+</svg>

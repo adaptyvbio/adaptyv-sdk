@@ -4,6 +4,7 @@ import pytest
 
 from adaptyv.exceptions import ValidationError
 from adaptyv.validation import (
+    normalize_sequences,
     validate_sequence,
     validate_sequences,
     validate_url,
@@ -22,6 +23,20 @@ class TestValidateSequence:
     def test_invalid_characters(self) -> None:
         with pytest.raises(ValidationError, match="invalid characters"):
             validate_sequence("MVKX123")
+
+    def test_valid_multichain_sequence(self) -> None:
+        """Multi-chain sequence with colon separator should pass."""
+        validate_sequence("MVKVGVNG:MKTAYIAK")
+
+    def test_empty_chain_fails(self) -> None:
+        """Empty chain in multi-chain sequence should fail."""
+        with pytest.raises(ValidationError, match="Empty chain"):
+            validate_sequence("MVKVGVNG::MKTAYIAK")
+
+    def test_multichain_invalid_chars(self) -> None:
+        """Invalid chars in any chain should fail."""
+        with pytest.raises(ValidationError, match="invalid characters"):
+            validate_sequence("MVKVGVNG:MKTX1234")
 
 
 class TestValidateSequences:
@@ -55,3 +70,21 @@ class TestValidateUrl:
     def test_invalid_url(self) -> None:
         with pytest.raises(ValidationError, match="must be a valid URL"):
             validate_url("not-a-url")
+
+
+class TestNormalizeSequences:
+    def test_list_to_dict(self) -> None:
+        """List should be converted to dict with design_N keys."""
+        result = normalize_sequences(["MVKVG", "MKVLA"])
+        assert result == {"design_0": "MVKVG", "design_1": "MKVLA"}
+
+    def test_dict_passthrough(self) -> None:
+        """Dict should be returned as-is."""
+        input_dict = {"seq1": "MVKVG", "seq2": "MKVLA"}
+        result = normalize_sequences(input_dict)
+        assert result is input_dict
+
+    def test_empty_list(self) -> None:
+        """Empty list should return empty dict."""
+        result = normalize_sequences([])
+        assert result == {}

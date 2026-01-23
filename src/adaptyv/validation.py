@@ -8,15 +8,28 @@ from adaptyv.exceptions import ValidationError
 
 AMINO_ACIDS = set("ACDEFGHIKLMNPQRSTVWY")
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+CHAIN_SEPARATOR = ":"
 
 
 def validate_sequence(seq: str, name: str = "sequence") -> None:
-    """Validate amino acid sequence."""
+    """Validate amino acid sequence.
+
+    Supports multi-chain sequences separated by colons.
+    Example: "MVKVGVNG:MKTAYIAK" (two chains)
+    """
     if not seq:
         raise ValidationError(f"{name} cannot be empty")
-    invalid = set(seq.upper()) - AMINO_ACIDS
-    if invalid:
-        raise ValidationError(f"{name} contains invalid characters: {invalid}")
+
+    # Split by chain separator and validate each chain
+    chains = seq.split(CHAIN_SEPARATOR)
+    for i, chain in enumerate(chains):
+        if not chain:
+            raise ValidationError(f"Empty chain at position {i} in {name}")
+        invalid = set(chain.upper()) - AMINO_ACIDS
+        if invalid:
+            raise ValidationError(
+                f"{name} chain {i} contains invalid characters: {sorted(invalid)}"
+            )
 
 
 def validate_sequences(seqs: dict[str, str] | list[str]) -> None:
@@ -24,6 +37,17 @@ def validate_sequences(seqs: dict[str, str] | list[str]) -> None:
     items = seqs.items() if isinstance(seqs, dict) else enumerate(seqs)
     for key, seq in items:
         validate_sequence(seq, f"sequence[{key}]")
+
+
+def normalize_sequences(sequences: list[str] | dict[str, str]) -> dict[str, str]:
+    """Convert list of sequences to dict with auto-generated names.
+
+    If already a dict, returns as-is. If a list, creates a dict with
+    keys like "design_0", "design_1", etc.
+    """
+    if isinstance(sequences, dict):
+        return sequences
+    return {f"design_{i}": seq for i, seq in enumerate(sequences)}
 
 
 def validate_uuid(value: str, name: str = "id") -> None:

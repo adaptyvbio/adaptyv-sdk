@@ -1,7 +1,7 @@
-"""Exceptions for Adaptyv Lab SDK.
+"""Exceptions for Adaptyv SDK.
 
 Exception hierarchy:
-    AdaptyvLabError (base)
+    AdaptyvError (base)
     ├── AuthenticationError (401, invalid API key)
     ├── APIError (HTTP errors with status_code, response_body, request context)
     │   ├── NotFoundError (404, resource not found)
@@ -12,20 +12,22 @@ Exception hierarchy:
 
 from __future__ import annotations
 
+from typing import Any
 
-class AdaptyvLabError(Exception):
+
+class AdaptyvError(Exception):
     """Base exception for all SDK errors."""
 
-    pass
+
+# Backwards compatibility alias
+AdaptyvLabError = AdaptyvError
 
 
-class AuthenticationError(AdaptyvLabError):
+class AuthenticationError(AdaptyvError):
     """API key is missing or invalid."""
 
-    pass
 
-
-class APIError(AdaptyvLabError):
+class APIError(AdaptyvError):
     """HTTP error from Foundry API.
 
     Attributes:
@@ -40,7 +42,7 @@ class APIError(AdaptyvLabError):
         self,
         status_code: int,
         message: str,
-        response_body: dict | None = None,
+        response_body: dict[str, Any] | None = None,
         *,
         request_id: str | None = None,
         request_path: str | None = None,
@@ -114,18 +116,31 @@ class RateLimitError(APIError):
         )
 
 
-class ValidationError(AdaptyvLabError):
+class ValidationError(AdaptyvError):
     """Invalid request parameters."""
 
-    pass
 
-
-class PermissionDeniedError(AdaptyvLabError):
-    """API key lacks required permissions.
+class PermissionDeniedError(APIError):
+    """Permission denied (403).
 
     This typically occurs when trying to create experiments with an API key
     that doesn't have the create_experiment permission or when the account
     isn't activated for experiment creation.
     """
 
-    pass
+    def __init__(
+        self,
+        message: str = "Permission denied",
+        *,
+        status_code: int = 403,
+        response_body: dict[str, Any] | None = None,
+        request_id: str | None = None,
+        request_path: str | None = None,
+    ):
+        super().__init__(
+            status_code,
+            message,
+            response_body,
+            request_id=request_id,
+            request_path=request_path,
+        )

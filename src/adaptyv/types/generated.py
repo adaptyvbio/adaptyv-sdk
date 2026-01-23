@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, RootModel
 
 class CreateExpResponse(BaseModel):
     experiment_id: str = Field(..., description="Unique identifier assigned to the new experiment")
+    error: str | None = Field(None, description="Error message if creation failed")
 
 
 class ExperimentConfirmationResponse(BaseModel):
@@ -49,6 +50,7 @@ class ExperimentQuoteResponse(BaseModel):
     )
     quote_id: str = Field(..., description="Stripe quote identifier")
     status: str = Field(..., description="Stripe quote status")
+    stripe_quote_url: str | None = Field(None, description="Stripe hosted quote URL")
     updated_at: str | None = Field(None, description="RFC3339 timestamp for the last update time")
 
 
@@ -63,12 +65,15 @@ class ExperimentStatus(str, Enum):
     data_analysis = "data_analysis"
     in_review = "in_review"
     done = "done"
+    error = "error"
 
 
 class ExperimentType(str, Enum):
     affinity = "affinity"
     screening = "screening"
     thermostability = "thermostability"
+    fluorescence = "fluorescence"
+    expression = "expression"
 
 
 class FrameworkRegions(BaseModel):
@@ -149,12 +154,12 @@ class SequenceMetadata(BaseModel):
 
 
 class TargetList(BaseModel):
-    page: int = Field(..., description="Current page number (1-indexed)", ge=0)
-    per_page: int = Field(..., description="Number of items per page", ge=0)
     targets: list[TargetListItem] = Field(
         ..., description="Array of target summary items for the current page"
     )
     total: int = Field(..., description="Total number of targets available across all pages", ge=0)
+    count: int = Field(..., description="Number of items returned in this response", ge=0)
+    offset: int = Field(..., description="Offset from the start of the result set", ge=0)
 
 
 class UpdateList(BaseModel):
@@ -244,3 +249,221 @@ class ExpInfo(BaseModel):
     status: ExperimentStatus = Field(..., description="Current lifecycle status of the experiment")
     stripe_invoice_id: str | None = Field(None, description="Stripe invoice ID if invoiced")
     stripe_quote_id: str | None = Field(None, description="Stripe quote ID if quote was generated")
+
+
+# Result types for different experiment types
+
+
+class AffinityResult(BaseModel):
+    """Result for affinity experiments (BLI/SPR)."""
+
+    sequence_id: str = Field(..., description="ID of the sequence tested")
+    sequence_name: str | None = Field(None, description="Human-readable sequence name")
+    target_id: str = Field(..., description="ID of the target antigen")
+    n_replicates: int = Field(..., description="Number of replicates performed")
+    kd: list[float] = Field(..., description="KD values per replicate (in nM)")
+    kd_units: str = Field(default="nM", description="Units for KD values")
+    binding_strength: str | None = Field(
+        None, description="Binding strength classification: strong, moderate, weak, none"
+    )
+    kon: float | None = Field(None, description="Association rate constant (M⁻¹s⁻¹)")
+    koff: float | None = Field(None, description="Dissociation rate constant (s⁻¹)")
+
+
+class ThermostabilityResult(BaseModel):
+    """Result for thermostability experiments."""
+
+    sequence_id: str = Field(..., description="ID of the sequence tested")
+    sequence_name: str | None = Field(None, description="Human-readable sequence name")
+    tm: float | None = Field(None, description="Melting temperature (°C)")
+    t_agg: float | None = Field(None, description="Aggregation temperature (°C)")
+    t_onset: float | None = Field(None, description="Onset temperature (°C)")
+    quality_score: float | None = Field(None, description="Quality score (0.0-1.0)")
+
+
+# Cost breakdown types
+
+
+class AssayCost(BaseModel):
+    """Assay cost breakdown."""
+
+    experiment_type: str = Field(..., description="Type of experiment")
+    sequence_count: int = Field(..., description="Number of sequences")
+    n_replicates: int = Field(..., description="Number of replicates")
+    unit_price_cents: int = Field(..., description="Price per unit in cents")
+    replicate_price_cents: int = Field(..., description="Price per replicate in cents")
+    subtotal_cents: int = Field(..., description="Subtotal for assay in cents")
+
+
+class MaterialCost(BaseModel):
+    """Material cost breakdown."""
+
+    target_id: str = Field(..., description="ID of the target")
+    target_name: str = Field(..., description="Name of the target")
+    sequence_count: int = Field(..., description="Number of sequences")
+    unit_price_cents: int = Field(..., description="Price per unit in cents")
+    subtotal_cents: int = Field(..., description="Subtotal for materials in cents")
+
+
+class CostBreakdown(BaseModel):
+    """Full cost breakdown for an experiment."""
+
+    pricing_version: str = Field(..., description="Version of the pricing model")
+    assay: AssayCost = Field(..., description="Assay cost breakdown")
+    materials: MaterialCost | None = Field(None, description="Material cost breakdown")
+    total_cents: int = Field(..., description="Total cost in cents")
+
+
+class IncompleteCostEstimate(BaseModel):
+    """Incomplete cost estimate when target lacks pricing."""
+
+    reason: str = Field(..., description="Reason for incomplete estimate")
+    missing_fields: list[str] = Field(default_factory=list, description="Missing fields")
+
+
+class CostEstimateResponse(BaseModel):
+    """Response from cost estimation endpoint."""
+
+    breakdown: CostBreakdown | None = Field(None, description="Full cost breakdown if available")
+    incomplete: IncompleteCostEstimate | None = Field(
+        None, description="Incomplete estimate details if pricing unavailable"
+    )
+    warnings: list[str] = Field(default_factory=list, description="Warnings about the estimate")
+
+
+# Sequence types for /sequences endpoints
+
+
+class SequenceExperimentRef(BaseModel):
+    """Reference to the experiment a sequence belongs to."""
+
+    experiment_id: str = Field(..., description="Experiment UUID")
+    experiment_code: str = Field(..., description="Human-readable experiment code")
+    experiment_status: str | None = Field(None, description="Current experiment status")
+
+
+class SequenceListItem(BaseModel):
+    """Summary of a sequence in list responses."""
+
+    id: str = Field(..., description="Unique sequence identifier")
+    name: str | None = Field(None, description="Human-readable sequence name")
+    fasta_preview: str | None = Field(None, description="FASTA preview of the sequence")
+    length: int | None = Field(None, description="Amino acid count")
+    is_control: bool = Field(default=False, description="Whether this is a control sequence")
+    experiment_id: str = Field(..., description="Parent experiment ID")
+    experiment_code: str = Field(..., description="Parent experiment code")
+    created_at: str = Field(..., description="ISO 8601 creation timestamp")
+
+
+class SequenceList(BaseModel):
+    """Paginated list of sequences."""
+
+    sequences: list[SequenceListItem] = Field(..., description="Array of sequence summaries")
+    total: int = Field(..., description="Total sequences matching filters", ge=0)
+    count: int = Field(..., description="Number of sequences in this response", ge=0)
+    offset: int = Field(..., description="Offset used for pagination", ge=0)
+
+
+class SequenceInfoModel(BaseModel):
+    """Full details for a specific sequence."""
+
+    id: str = Field(..., description="Unique sequence identifier")
+    aa_string: str = Field(..., description="Complete amino acid sequence")
+    length: int = Field(..., description="Amino acid count")
+    name: str | None = Field(None, description="Human-readable sequence name")
+    is_control: bool = Field(default=False, description="Whether this is a control sequence")
+    experiment: SequenceExperimentRef = Field(..., description="Parent experiment reference")
+    created_at: str = Field(..., description="ISO 8601 creation timestamp")
+    metadata: dict[str, Any] | None = Field(None, description="Structural metadata")
+    customer_preferences: dict[str, Any] | None = Field(None, description="Customer preferences")
+
+
+class SequenceEntry(BaseModel):
+    """Sequence entry for creating/appending sequences."""
+
+    aa_string: str = Field(..., description="Amino acid sequence")
+    name: str | None = Field(None, description="Human-readable sequence name")
+    control: bool | None = Field(None, description="Mark as control well")
+    metadata: dict[str, Any] | None = Field(None, description="Structural metadata")
+    customer_preferences: dict[str, Any] | None = Field(None, description="Customer preferences")
+
+
+class SequenceAddRequest(BaseModel):
+    """Request to append sequences to a draft experiment."""
+
+    experiment_code: str = Field(..., description="Human-readable experiment code")
+    sequences: list[SequenceEntry] = Field(..., description="Sequences to add")
+
+
+class SequenceAddResponse(BaseModel):
+    """Response from appending sequences."""
+
+    added_count: int = Field(..., description="Number of sequences added")
+    experiment_id: str = Field(..., description="Experiment UUID")
+    experiment_code: str = Field(..., description="Human-readable experiment code")
+    sequence_ids: list[str] = Field(..., description="UUIDs of added sequences")
+
+
+# Result types for /results endpoints
+
+
+class ResultSummaryAffinity(BaseModel):
+    """Affinity result summary within a result."""
+
+    sequence_id: str = Field(..., description="Sequence ID tested")
+    sequence_name: str | None = Field(None, description="Human-readable sequence name")
+    target_id: str = Field(..., description="Target antigen ID")
+    n_replicates: int = Field(..., description="Number of replicates performed")
+    kd: list[float] = Field(..., description="KD values per replicate (nM)")
+    kd_units: str = Field(default="nM", description="Units for KD values")
+    kon: float | None = Field(None, description="Association rate constant (M⁻¹s⁻¹)")
+    koff: float | None = Field(None, description="Dissociation rate constant (s⁻¹)")
+    binding_strength: str | None = Field(None, description="Qualitative binding assessment")
+
+
+class ResultSummaryThermostability(BaseModel):
+    """Thermostability result summary within a result."""
+
+    sequence_id: str = Field(..., description="Sequence ID tested")
+    sequence_name: str | None = Field(None, description="Human-readable sequence name")
+    tm: float | None = Field(None, description="Melting temperature (°C)")
+    t_agg: float | None = Field(None, description="Aggregation temperature (°C)")
+    t_onset: float | None = Field(None, description="Unfolding onset temperature (°C)")
+    quality_score: float | None = Field(None, description="Quality score (0.0-1.0)")
+
+
+class ResultListItem(BaseModel):
+    """Summary of a result in list responses."""
+
+    id: str = Field(..., description="Unique result identifier")
+    title: str = Field(..., description="Result title")
+    experiment_id: str = Field(..., description="Parent experiment ID")
+    result_type: str = Field(..., description="Result type: affinity or thermostability")
+    created_at: str = Field(..., description="ISO 8601 creation timestamp")
+
+
+class ResultInfoModel(BaseModel):
+    """Full details for a specific result."""
+
+    id: str = Field(..., description="Unique result identifier")
+    title: str = Field(..., description="Result title")
+    experiment_id: str = Field(..., description="Parent experiment ID")
+    result_type: str = Field(..., description="Result type: affinity or thermostability")
+    created_at: str = Field(..., description="ISO 8601 creation timestamp")
+    summary: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Result summaries (AffinityResult or ThermostabilityResult)",
+    )
+    data_package_url: str | None = Field(
+        None, description="Pre-signed URL for data package (valid 24hr)"
+    )
+    metadata: dict[str, Any] | None = Field(None, description="Author, version, methodology")
+
+
+class ResultList(BaseModel):
+    """Paginated list of results."""
+
+    results: list[ResultListItem] = Field(..., description="Array of result summaries")
+    total: int = Field(..., description="Total results matching filters", ge=0)
+    count: int = Field(..., description="Number of results in this response", ge=0)
+    offset: int = Field(..., description="Offset used for pagination", ge=0)

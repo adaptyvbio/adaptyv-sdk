@@ -12,17 +12,17 @@ import httpx
 from adaptyv.config import (
     DEFAULT_RETRIES,
     DEFAULT_TIMEOUT_SECONDS,
-    FOUNDRY_API_BASE_URL,
-    FOUNDRY_API_INTERNAL_URL,
     RetryConfig,
 )
 
 if TYPE_CHECKING:
-    from adaptyv.config import FoundrySettings
+    from adaptyv.config import AdaptyvConfig
+
 from adaptyv.exceptions import (
     APIError,
     AuthenticationError,
     NotFoundError,
+    PermissionDeniedError,
     RateLimitError,
     ValidationError,
 )
@@ -33,30 +33,36 @@ from adaptyv.types.generated import (
     ExperimentInvoiceResponse,
     ExperimentQuoteResponse,
     ExperimentSpec,
-    ExperimentStatus,
-    ExperimentType,
     ExpInfo,
     ExpList,
-    ResultsStatus,
+    ResultInfoModel,
+    ResultList,
+    SequenceAddResponse,
+    SequenceEntry,
+    SequenceInfoModel,
+    SequenceList,
     TargetInfo,
     TargetList,
-    TargetListItem,
     UpdateList,
 )
 
 logger = logging.getLogger("adaptyv")
 
 
-# =============================================================================
-# Protocol Definitions
-# =============================================================================
-
-
 @runtime_checkable
 class ExperimentsAPIProtocol(Protocol):
     """Protocol for experiments API."""
 
-    def list(self) -> ExpList: ...
+    def list(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        search: str | None = None,
+        status: str | None = None,
+        state: str | None = None,
+        project_id: str | None = None,
+    ) -> ExpList: ...
     def create(
         self,
         name: str,
@@ -65,6 +71,8 @@ class ExperimentsAPIProtocol(Protocol):
         organization_id: str | None = None,
         webhook_url: str | None = None,
         experiment_id: str | None = None,
+        confirmed: bool = False,
+        auto_link_material: bool = False,
     ) -> CreateExpResponse: ...
     def get(self, experiment_id: str) -> ExpInfo: ...
     def confirm(self, experiment_id: str) -> ExperimentConfirmationResponse: ...
@@ -78,6 +86,14 @@ class ExperimentsAPIProtocol(Protocol):
         limit: int = 50,
         update_type: str | None = None,
     ) -> UpdateList: ...
+    def get_results(
+        self,
+        experiment_id: str,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> ResultList: ...
+    def update_priority(self, experiment_id: str, priority: int) -> dict[str, Any]: ...
 
 
 @runtime_checkable
@@ -85,8 +101,61 @@ class TargetsAPIProtocol(Protocol):
     """Protocol for targets API."""
 
     def get(self, target_id: str) -> TargetInfo: ...
-    def list(self, *, page: int = 1, per_page: int = 50) -> TargetList: ...
-    def search(self, query: str, *, limit: int = 50) -> TargetList: ...
+    def list(
+        self, *, limit: int = 50, offset: int = 0, selfservice_only: bool = False
+    ) -> TargetList: ...
+    def search(
+        self, query: str, *, limit: int = 50, selfservice_only: bool = False
+    ) -> TargetList: ...
+
+
+@runtime_checkable
+class UpdatesAPIProtocol(Protocol):
+    """Protocol for global updates API."""
+
+    def list(
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int = 50,
+        experiment_id: str | None = None,
+        experiment_ids: str | None = None,
+        update_type: str | None = None,
+    ) -> UpdateList: ...
+
+
+@runtime_checkable
+class SequencesAPIProtocol(Protocol):
+    """Protocol for sequences API."""
+
+    def list(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        experiment_id: str | None = None,
+        search: str | None = None,
+    ) -> SequenceList: ...
+    def create(
+        self,
+        experiment_code: str,
+        sequences: list[SequenceEntry] | list[dict[str, Any]],
+    ) -> SequenceAddResponse: ...
+    def get(self, sequence_id: str) -> SequenceInfoModel: ...
+
+
+@runtime_checkable
+class ResultsAPIProtocol(Protocol):
+    """Protocol for results API."""
+
+    def list(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        experiment_id: str | None = None,
+    ) -> ResultList: ...
+    def get(self, result_id: str) -> ResultInfoModel: ...
 
 
 @runtime_checkable
@@ -95,16 +164,13 @@ class FoundryClientProtocol(Protocol):
 
     experiments: ExperimentsAPIProtocol
     targets: TargetsAPIProtocol
+    updates: UpdatesAPIProtocol
+    sequences: SequencesAPIProtocol
+    results: ResultsAPIProtocol
 
     def close(self) -> None: ...
 
 
-# =============================================================================
-# Client Cache
-# =============================================================================
-
-# Cached clients by API key (avoids creating new HTTP connections per request)
-# Type is Any because Protocol structural typing doesn't work well with mypy
 _client_cache: dict[str, Any] = {}
 
 
@@ -114,67 +180,49 @@ def get_client(
     base_url: str | None = None,
     timeout: int | None = None,
     retries: int = DEFAULT_RETRIES,
-    settings: FoundrySettings | None = None,
+    settings: AdaptyvConfig | None = None,
 ) -> FoundryClientProtocol:
     """Get or create a cached FoundryClient.
 
-    Returns PublicFoundryClient or InternalFoundryClient based on
-    settings.api_type or ADAPTYV_API_TYPE env var.
-
     This avoids creating new HTTP connections for every request.
-    Clients are cached by API key + api_type.
-
-    When ADAPTYV_MOCK_MODE=1 is set, returns a MockFoundryClient that
-    doesn't require an API key and returns predictable mock responses.
+    Clients are cached by API key.
 
     Args:
         api_key: Foundry API key. If None, reads from settings/env.
         base_url: Override API base URL.
         timeout: Request timeout in seconds.
         retries: Number of retries for connection failures.
-        settings: FoundrySettings instance (optional, auto-created if None).
+        settings: AdaptyvConfig instance (optional, auto-created if None).
 
     Returns:
-        Cached FoundryClient, InternalFoundryClient, or MockFoundryClient.
+        Cached FoundryClient.
     """
-    from adaptyv.config import MOCK_MODE, FoundrySettings
-
-    # Return mock client if mock mode is enabled
-    if MOCK_MODE:
-        cache_key = "mock"
-        if cache_key not in _client_cache:
-            _client_cache[cache_key] = MockFoundryClient()
-        return cast(FoundryClientProtocol, _client_cache[cache_key])
+    from adaptyv.config import AdaptyvConfig
 
     # Load settings if not provided
     if settings is None:
-        settings = FoundrySettings()
+        settings = AdaptyvConfig()
 
     # Resolve values from settings or explicit args
     resolved_key = api_key or settings.api_key
-    resolved_url = base_url or settings.get_base_url()
+    resolved_url = base_url or settings.api_url
     resolved_timeout = timeout if timeout is not None else settings.timeout
-    api_type = settings.api_type
 
-    # Cache key includes api_type to separate public vs internal clients
-    cache_key = f"{resolved_key}:{api_type}"
+    if not resolved_url:
+        raise ValueError(
+            "API URL is required. Either set ADAPTYV_API_URL environment variable "
+            "or pass base_url parameter."
+        )
+
+    cache_key = resolved_key or "default"
 
     if cache_key not in _client_cache:
-        # Select client class based on api_type
-        if api_type == "internal":
-            _client_cache[cache_key] = InternalFoundryClient(
-                resolved_key,
-                base_url=resolved_url,
-                timeout=resolved_timeout,
-                retries=retries,
-            )
-        else:
-            _client_cache[cache_key] = FoundryClient(
-                resolved_key,
-                base_url=resolved_url,
-                timeout=resolved_timeout,
-                retries=retries,
-            )
+        _client_cache[cache_key] = FoundryClient(
+            resolved_key,
+            base_url=resolved_url,
+            timeout=resolved_timeout,
+            retries=retries,
+        )
 
     return cast(FoundryClientProtocol, _client_cache[cache_key])
 
@@ -185,13 +233,39 @@ class ExperimentsAPI:
     def __init__(self, client: FoundryClient):
         self._client = client
 
-    def list(self) -> ExpList:
-        """List all experiments accessible to the authenticated user.
+    def list(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        search: str | None = None,
+        status: str | None = None,
+        state: str | None = None,
+        project_id: str | None = None,
+    ) -> ExpList:
+        """List experiments with optional filters.
+
+        Args:
+            limit: Maximum number of experiments to return.
+            offset: Number of experiments to skip.
+            search: Case-insensitive search term.
+            status: Filter by status (comma-separated for multiple).
+            state: Filter by state.
+            project_id: Filter by project ID.
 
         Returns:
-            ExpList with experiment summaries
+            List of experiments matching filters.
         """
-        response = self._client._get("/experiments")
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if search:
+            params["search"] = search
+        if status:
+            params["status"] = status
+        if state:
+            params["state"] = state
+        if project_id:
+            params["project_id"] = project_id
+        response = self._client._get("/experiments", params=params)
         return ExpList(**response)
 
     def create(
@@ -202,18 +276,22 @@ class ExperimentsAPI:
         organization_id: str | None = None,
         webhook_url: str | None = None,
         experiment_id: str | None = None,
+        confirmed: bool = False,
+        auto_link_material: bool = False,
     ) -> CreateExpResponse:
         """Create a new experiment.
 
         Args:
-            name: Human-readable experiment name
-            experiment_spec: Experiment specification
-            organization_id: Organization UUID (required if not in API key)
-            webhook_url: Optional webhook for status updates
-            experiment_id: Optional UUID for updates
+            name: Human-readable experiment name.
+            experiment_spec: Experiment specification (type, target, sequences).
+            organization_id: Organization ID (for multi-org accounts).
+            webhook_url: URL for status update callbacks.
+            experiment_id: UUID for idempotent updates.
+            confirmed: If True, skip draft and submit directly.
+            auto_link_material: If True, auto-link inventory material.
 
         Returns:
-            CreateExpResponse with experiment_id
+            Response with experiment_id.
         """
         if isinstance(experiment_spec, dict):
             experiment_spec = ExperimentSpec(**experiment_spec)
@@ -225,60 +303,34 @@ class ExperimentsAPI:
             id=experiment_id,
         )
 
-        response = self._client._post("/experiments", request.model_dump(exclude_none=True))
+        payload = request.model_dump(exclude_none=True)
+        if organization_id:
+            payload["organization_id"] = organization_id
+        if confirmed:
+            payload["skip_draft"] = True
+        if auto_link_material:
+            payload["auto_link_material"] = True
+
+        response = self._client._post("/experiments", payload)
         return CreateExpResponse(**response)
 
     def get(self, experiment_id: str) -> ExpInfo:
-        """Get experiment details by ID.
-
-        Args:
-            experiment_id: Experiment UUID
-
-        Returns:
-            ExpInfo with full experiment details
-        """
+        """Get experiment by ID."""
         response = self._client._get(f"/experiments/{experiment_id}")
         return ExpInfo(**response)
 
     def confirm(self, experiment_id: str) -> ExperimentConfirmationResponse:
-        """Confirm experiment quote to start production.
-
-        Args:
-            experiment_id: Experiment UUID
-
-        Returns:
-            ExperimentConfirmationResponse with confirmation details
-        """
+        """Confirm experiment quote to start production."""
         response = self._client._post(f"/experiments/{experiment_id}/confirm", {})
         return ExperimentConfirmationResponse(**response)
 
     def get_quote(self, experiment_id: str) -> ExperimentQuoteResponse:
-        """Get experiment quote details.
-
-        Returns quote metadata including totals, currency, status, and expiration.
-        Available once stripe_quote_id appears in experiment details.
-
-        Args:
-            experiment_id: Experiment UUID
-
-        Returns:
-            ExperimentQuoteResponse with quote details
-        """
+        """Get experiment quote details."""
         response = self._client._get(f"/experiments/{experiment_id}/quote")
         return ExperimentQuoteResponse(**response)
 
     def get_invoice(self, experiment_id: str) -> ExperimentInvoiceResponse:
-        """Get experiment invoice details.
-
-        Returns invoice ID, hosted URL, and payment status.
-        Available after experiment is confirmed.
-
-        Args:
-            experiment_id: Experiment UUID
-
-        Returns:
-            ExperimentInvoiceResponse with invoice details
-        """
+        """Get experiment invoice details."""
         response = self._client._get(f"/experiments/{experiment_id}/invoice")
         return ExperimentInvoiceResponse(**response)
 
@@ -290,27 +342,64 @@ class ExperimentsAPI:
         limit: int = 50,
         update_type: str | None = None,
     ) -> UpdateList:
-        """List experiment status updates.
-
-        Returns updates in chronological order (oldest first).
-        Use next_cursor for pagination.
-
-        Args:
-            experiment_id: Experiment UUID
-            cursor: Pagination cursor (use last update ID)
-            limit: Maximum results (default 50, max 100)
-            update_type: Filter by type (status_change, progress, error)
-
-        Returns:
-            UpdateList with updates and pagination cursor
-        """
-        params: dict[str, Any] = {"limit": limit}
-        if cursor:
-            params["cursor"] = cursor
-        if update_type:
-            params["type"] = update_type
+        """List experiment status updates."""
+        params: dict[str, Any] = {
+            k: v
+            for k, v in {"limit": limit, "cursor": cursor, "type": update_type}.items()
+            if v is not None
+        }
         response = self._client._get(f"/experiments/{experiment_id}/updates", params=params)
         return UpdateList(**response)
+
+    def cost_estimate(
+        self,
+        experiment_spec: ExperimentSpec | dict[str, Any],
+    ) -> dict[str, Any]:
+        """Estimate experiment cost without creating it.
+
+        Note: Returns raw dict since API response structure varies.
+        """
+        if isinstance(experiment_spec, dict):
+            experiment_spec = ExperimentSpec(**experiment_spec)
+
+        payload = {"experiment_spec": experiment_spec.model_dump(exclude_none=True)}
+        return self._client._post("/experiments/costestimate", payload)
+
+    def get_results(
+        self,
+        experiment_id: str,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> ResultList:
+        """Get results for a specific experiment.
+
+        Args:
+            experiment_id: Experiment UUID.
+            limit: Maximum number of results to return.
+            offset: Number of results to skip.
+
+        Returns:
+            Paginated list of results for the experiment.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        response = self._client._get(f"/experiments/{experiment_id}/results", params=params)
+        return ResultList(**response)
+
+    def update_priority(self, experiment_id: str, priority: int) -> dict[str, Any]:
+        """Update experiment priority.
+
+        Args:
+            experiment_id: Experiment UUID.
+            priority: New priority value.
+
+        Returns:
+            Response from the API.
+        """
+        return self._client._post(
+            f"/experiments/{experiment_id}/update-priority",
+            {"priority": priority},
+        )
 
 
 class TargetsAPI:
@@ -320,51 +409,209 @@ class TargetsAPI:
         self._client = client
 
     def get(self, target_id: str) -> TargetInfo:
-        """Get target details by ID.
-
-        Args:
-            target_id: Target UUID from catalog
-
-        Returns:
-            TargetInfo with full target details
-        """
+        """Get target by ID."""
         response = self._client._get(f"/targets/{target_id}")
         return TargetInfo(**response)
 
-    def list(self, *, page: int = 1, per_page: int = 50) -> TargetList:
-        """List available targets from catalog.
+    def list(
+        self, *, limit: int = 50, offset: int = 0, selfservice_only: bool = False
+    ) -> TargetList:
+        """List available targets.
 
         Args:
-            page: Page number (1-indexed)
-            per_page: Items per page
+            limit: Maximum number of targets to return.
+            offset: Number of targets to skip.
+            selfservice_only: If True, only return self-service targets.
 
         Returns:
-            TargetList with targets and pagination info
+            Paginated list of targets.
         """
-        response = self._client._get("/targets", params={"page": page, "per_page": per_page})
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if selfservice_only:
+            params["selfservice_only"] = "true"
+        response = self._client._get("/targets", params=params)
         return TargetList(**response)
 
-    def search(self, query: str, *, limit: int = 50) -> TargetList:
+    def search(
+        self, query: str, *, limit: int = 50, selfservice_only: bool = False
+    ) -> TargetList:
         """Search targets by name/description.
 
         Args:
-            query: Search query
-            limit: Maximum results
+            query: Search term.
+            limit: Maximum number of targets to return.
+            selfservice_only: If True, only return self-service targets.
 
         Returns:
-            TargetList with matching targets
+            List of matching targets.
         """
-        response = self._client._get("/targets", params={"search": query, "per_page": limit})
+        params: dict[str, Any] = {"search": query, "limit": limit}
+        if selfservice_only:
+            params["selfservice_only"] = "true"
+        response = self._client._get("/targets", params=params)
         return TargetList(**response)
 
 
+class UpdatesAPI:
+    """Global updates endpoint for cross-experiment update feed."""
+
+    def __init__(self, client: FoundryClient):
+        self._client = client
+
+    def list(
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int = 50,
+        experiment_id: str | None = None,
+        experiment_ids: str | None = None,
+        update_type: str | None = None,
+    ) -> UpdateList:
+        """List updates across all experiments.
+
+        Args:
+            cursor: Pagination cursor (use last update ID).
+            limit: Maximum number of updates to return.
+            experiment_id: Filter to single experiment.
+            experiment_ids: Filter to multiple experiments (comma-separated).
+            update_type: Filter by update type.
+
+        Returns:
+            List of updates with next_cursor for pagination.
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if cursor:
+            params["cursor"] = cursor
+        if experiment_id:
+            params["experiment_id"] = experiment_id
+        if experiment_ids:
+            params["experiment_ids"] = experiment_ids
+        if update_type:
+            params["type"] = update_type
+        response = self._client._get("/updates", params=params)
+        return UpdateList(**response)
+
+
+class SequencesAPI:
+    """Sequences endpoint for managing experiment sequences."""
+
+    def __init__(self, client: FoundryClient):
+        self._client = client
+
+    def list(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        experiment_id: str | None = None,
+        search: str | None = None,
+    ) -> SequenceList:
+        """List sequences from accessible experiments.
+
+        Args:
+            limit: Maximum number of sequences to return.
+            offset: Number of sequences to skip.
+            experiment_id: Filter by experiment UUID.
+            search: Search in name or FASTA content.
+
+        Returns:
+            Paginated list of sequences.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if experiment_id:
+            params["experiment_id"] = experiment_id
+        if search:
+            params["search"] = search
+        response = self._client._get("/sequences", params=params)
+        return SequenceList(**response)
+
+    def create(
+        self,
+        experiment_code: str,
+        sequences: list[SequenceEntry] | list[dict[str, Any]],
+    ) -> SequenceAddResponse:
+        """Append sequences to a draft experiment.
+
+        Args:
+            experiment_code: Human-readable experiment code (e.g., "PROJ-001").
+            sequences: List of sequences to add.
+
+        Returns:
+            Response with added count and sequence IDs.
+        """
+        seq_entries = [
+            s if isinstance(s, SequenceEntry) else SequenceEntry(**s) for s in sequences
+        ]
+        payload = {
+            "experiment_code": experiment_code,
+            "sequences": [s.model_dump(exclude_none=True) for s in seq_entries],
+        }
+        response = self._client._post("/sequences", payload)
+        return SequenceAddResponse(**response)
+
+    def get(self, sequence_id: str) -> SequenceInfoModel:
+        """Get full details for a specific sequence.
+
+        Args:
+            sequence_id: Sequence UUID.
+
+        Returns:
+            Full sequence details including metadata.
+        """
+        response = self._client._get(f"/sequences/{sequence_id}")
+        return SequenceInfoModel(**response)
+
+
+class ResultsAPI:
+    """Results endpoint for accessing experiment results."""
+
+    def __init__(self, client: FoundryClient):
+        self._client = client
+
+    def list(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        experiment_id: str | None = None,
+    ) -> ResultList:
+        """List completed analysis results.
+
+        Args:
+            limit: Maximum number of results to return.
+            offset: Number of results to skip.
+            experiment_id: Filter by experiment UUID.
+
+        Returns:
+            Paginated list of results.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if experiment_id:
+            params["experiment_id"] = experiment_id
+        response = self._client._get("/results", params=params)
+        return ResultList(**response)
+
+    def get(self, result_id: str) -> ResultInfoModel:
+        """Get full details for a specific result.
+
+        Args:
+            result_id: Result UUID.
+
+        Returns:
+            Full result details including kinetic parameters and data package URL.
+        """
+        response = self._client._get(f"/results/{result_id}")
+        return ResultInfoModel(**response)
+
+
 class FoundryClient:
-    """Low-level client for Foundry Public API.
+    """Client for Adaptyv Foundry API.
 
     Features:
     - Exponential backoff retry for 429 and 5xx errors
     - Request correlation IDs for debugging
     - Structured error handling with request context
+    - Cost estimation before experiment creation
 
     Usage:
         client = FoundryClient(api_key="...")
@@ -384,13 +631,16 @@ class FoundryClient:
 
         # Check status
         info = client.experiments.get(exp.experiment_id)
+
+        # Estimate cost before creating
+        estimate = client.experiments.cost_estimate({...})
     """
 
     def __init__(
         self,
         api_key: str,
         *,
-        base_url: str = FOUNDRY_API_BASE_URL,
+        base_url: str,
         timeout: int = DEFAULT_TIMEOUT_SECONDS,
         retries: int = DEFAULT_RETRIES,
         retry_config: RetryConfig | None = None,
@@ -399,7 +649,7 @@ class FoundryClient:
 
         Args:
             api_key: Foundry API key
-            base_url: API base URL (defaults to production)
+            base_url: API base URL (required, set via ADAPTYV_API_URL env var)
             timeout: Request timeout in seconds
             retries: Number of retries for connection failures (transport-level)
             retry_config: Configuration for application-level retry with backoff
@@ -422,6 +672,9 @@ class FoundryClient:
 
         self.experiments = ExperimentsAPI(self)
         self.targets = TargetsAPI(self)
+        self.updates = UpdatesAPI(self)
+        self.sequences = SequencesAPI(self)
+        self.results = ResultsAPI(self)
 
     def _generate_correlation_id(self) -> str:
         """Generate a unique correlation ID for request tracking."""
@@ -524,17 +777,25 @@ class FoundryClient:
         request_id = response.headers.get("X-Request-ID") or correlation_id
 
         if response.status_code < 400:
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         # Try to parse error body
         try:
             body = response.json()
-        except Exception:
+        except (ValueError, httpx.DecodingError):
             body = {"error": response.text}
 
         # Map status codes to exceptions with full context
         if response.status_code == 401:
             raise AuthenticationError("Invalid API key")
+
+        if response.status_code == 403:
+            raise PermissionDeniedError(
+                body.get("error") or body.get("message") or "Permission denied",
+                response_body=body,
+                request_id=request_id,
+                request_path=path,
+            )
 
         if response.status_code == 404:
             raise NotFoundError(
@@ -571,7 +832,7 @@ class FoundryClient:
                     "Request rejected. API discards error details (foundry-api-public#14). "
                     "Common causes: (1) API key lacks create_experiment permission, "
                     "(2) missing target_id, (3) empty sequences, (4) invalid UUIDs. "
-                    "Contact support@adaptyvbio.com to verify API key permissions."
+                    "Contact foundry@adaptyvbio.com to verify API key permissions."
                 )
             raise ValidationError(f"Bad request: {error_msg or body}")
 
@@ -592,265 +853,3 @@ class FoundryClient:
 
     def __exit__(self, *args: Any) -> None:
         self.close()
-
-
-# =============================================================================
-# Internal API Client
-# =============================================================================
-
-
-class InternalExperimentsAPI(ExperimentsAPI):
-    """Experiments API with internal-only methods."""
-
-    def cost_estimate(
-        self,
-        experiment_spec: ExperimentSpec | dict[str, Any],
-    ) -> dict[str, Any]:
-        """Estimate experiment cost without creating it.
-
-        Calculates the estimated cost for an experiment based on the spec.
-        Useful for previewing costs before submission.
-
-        Note: This endpoint is only available on the internal API.
-
-        Args:
-            experiment_spec: Experiment specification (same format as create)
-
-        Returns:
-            APICostEstimateResponse with breakdown or incomplete estimate.
-            Use APICostEstimateResponse.from_api(response) to parse.
-
-        Example:
-            from adaptyv.types.internal import APICostEstimateResponse
-
-            response = client.experiments.cost_estimate({
-                "experiment_type": "screening",
-                "target_id": "...",
-                "sequences": {"seq1": "MVKVG..."},
-            })
-            estimate = APICostEstimateResponse.from_api(response)
-
-            if estimate.is_complete:
-                print(f"Total: ${estimate.total_cents / 100:.2f}")
-            else:
-                print(f"Assay cost: ${estimate.assay_subtotal_cents / 100:.2f}")
-                print(f"Materials: {estimate.incomplete.materials_unavailable.reason}")
-        """
-        if isinstance(experiment_spec, dict):
-            experiment_spec = ExperimentSpec(**experiment_spec)
-
-        payload = {"experiment_spec": experiment_spec.model_dump(exclude_none=True)}
-        return self._client._post("/experiments/costestimate", payload)
-
-
-class InternalFoundryClient(FoundryClient):
-    """Internal API client for Adaptyv Foundry.
-
-    Inherits all public API endpoints from FoundryClient.
-    Uses the internal API URL by default.
-
-    The internal API has additional endpoints not available in the public API:
-    - /experiments/costestimate - Estimate experiment cost
-    - /experiments/{id}/results - Get experiment results
-    - /results - List all results
-    - /sequences - Sequence management
-    - /organizations - Organization management
-    - /users - User management
-    - /tokens - Token management
-
-    These can be added as methods to this class when needed.
-
-    Usage:
-        # Automatic via settings
-        os.environ["ADAPTYV_API_TYPE"] = "internal"
-        client = get_client()  # Returns InternalFoundryClient
-
-        # Explicit
-        client = InternalFoundryClient(api_key="...")
-    """
-
-    # Override type hint for experiments to include cost_estimate method
-    experiments: InternalExperimentsAPI
-
-    def __init__(
-        self,
-        api_key: str,
-        *,
-        base_url: str = FOUNDRY_API_INTERNAL_URL,
-        timeout: int = DEFAULT_TIMEOUT_SECONDS,
-        retries: int = DEFAULT_RETRIES,
-        retry_config: RetryConfig | None = None,
-    ):
-        """Initialize Internal Foundry client.
-
-        Args:
-            api_key: Foundry API key (internal token)
-            base_url: API base URL (defaults to internal API)
-            timeout: Request timeout in seconds
-            retries: Number of retries for connection failures
-            retry_config: Configuration for application-level retry with backoff
-        """
-        super().__init__(
-            api_key,
-            base_url=base_url,
-            timeout=timeout,
-            retries=retries,
-            retry_config=retry_config,
-        )
-        # Replace with internal experiments API
-        self.experiments = InternalExperimentsAPI(self)
-
-    def __enter__(self) -> InternalFoundryClient:
-        return self
-
-
-# =============================================================================
-# Mock Client for Testing/CI
-# =============================================================================
-
-
-class MockExperimentsAPI:
-    """Mock experiments endpoint for testing without API calls."""
-
-    def list(self) -> ExpList:
-        """Return empty experiment list."""
-        return ExpList(experiments=[])
-
-    def create(
-        self,
-        name: str,
-        experiment_spec: ExperimentSpec | dict[str, Any],
-        *,
-        organization_id: str | None = None,
-        webhook_url: str | None = None,
-        experiment_id: str | None = None,
-    ) -> CreateExpResponse:
-        """Return mock experiment ID."""
-        return CreateExpResponse(experiment_id=experiment_id or "mock-exp-001")
-
-    def get(self, experiment_id: str) -> ExpInfo:
-        """Return mock experiment info."""
-        return ExpInfo(
-            id=experiment_id,
-            name="Mock Experiment",
-            code="MOCK-001",
-            status=ExperimentStatus.waiting_for_confirmation,
-            experiment_spec=ExperimentSpec(experiment_type=ExperimentType.screening),
-            created_at="2024-01-01T00:00:00Z",
-            results_status=ResultsStatus.none,
-            experiment_url=f"https://foundry.adaptyvbio.com/exp/{experiment_id}",
-        )
-
-    def confirm(self, experiment_id: str) -> ExperimentConfirmationResponse:
-        """Return mock confirmation response."""
-        return ExperimentConfirmationResponse(
-            experiment_id=experiment_id,
-            status="confirmed",
-            confirmed_at="2024-01-01T00:00:00Z",
-            stripe_invoice_id=None,
-            stripe_invoice_url=None,
-        )
-
-    def get_quote(self, experiment_id: str) -> ExperimentQuoteResponse:
-        """Return mock quote response."""
-        return ExperimentQuoteResponse(
-            experiment_id=experiment_id,
-            quote_id="qt_mock123",
-            amount_subtotal=9900,
-            amount_total=9900,
-            currency="usd",
-            status="open",
-            expires_at="2024-01-08T00:00:00Z",
-            updated_at="2024-01-01T00:00:00Z",
-        )
-
-    def get_invoice(self, experiment_id: str) -> ExperimentInvoiceResponse:
-        """Return mock invoice response."""
-        return ExperimentInvoiceResponse(
-            experiment_id=experiment_id,
-            invoice_id="inv_mock123",
-            invoice_url="https://invoice.stripe.com/mock",
-            status="open",
-        )
-
-    def list_updates(
-        self,
-        experiment_id: str,
-        *,
-        cursor: str | None = None,
-        limit: int = 50,
-        update_type: str | None = None,
-    ) -> UpdateList:
-        """Return mock updates list."""
-        return UpdateList(
-            updates=[],
-            next_cursor=None,
-        )
-
-
-class MockTargetsAPI:
-    """Mock targets endpoint for testing without API calls."""
-
-    def get(self, target_id: str) -> TargetInfo:
-        """Return mock target info."""
-        return TargetInfo(
-            id=target_id,
-            name="Mock Target",
-            vendor_name="MockVendor",
-            catalog_number="MOCK-001",
-        )
-
-    def list(self, *, page: int = 1, per_page: int = 50) -> TargetList:
-        """Return mock target list."""
-        return TargetList(
-            targets=[
-                TargetListItem(
-                    id="mock-target-001",
-                    name="Mock Target",
-                    vendor_name="MockVendor",
-                    catalog_number="MOCK-001",
-                )
-            ],
-            total=1,
-            page=page,
-            per_page=per_page,
-        )
-
-    def search(self, query: str, *, limit: int = 50) -> TargetList:
-        """Return mock search results."""
-        return self.list(per_page=limit)
-
-
-class MockFoundryClient:
-    """Mock client for testing without real API calls.
-
-    Enabled via ADAPTYV_MOCK_MODE=1 environment variable.
-    Returns predictable mock responses for all API methods.
-
-    Usage:
-        # Set env var before importing
-        os.environ["ADAPTYV_MOCK_MODE"] = "1"
-
-        from adaptyv.client.foundry import get_client
-        client = get_client()  # Returns MockFoundryClient
-
-        # All operations return mock data
-        exp = client.experiments.create("Test", {...})
-        client.experiments.confirm(exp.experiment_id)
-    """
-
-    def __init__(self, api_key: str = "mock-api-key", **kwargs: Any):
-        """Initialize mock client (api_key is ignored)."""
-        self._base_url = "https://mock.foundry.api"
-        self.experiments = MockExperimentsAPI()
-        self.targets = MockTargetsAPI()
-
-    def close(self) -> None:
-        """No-op for mock client."""
-        pass
-
-    def __enter__(self) -> MockFoundryClient:
-        return self
-
-    def __exit__(self, *args: Any) -> None:
-        pass

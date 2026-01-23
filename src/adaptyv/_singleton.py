@@ -3,7 +3,7 @@
 Usage:
     from adaptyv import lab
 
-    @lab.experiment(target="PD-L1", workflow="bindcraft")
+    @lab.experiment(target="PD-L1")
     def design_binders():
         return ["MVKVGVNG...", "MKVLVAG..."]
 
@@ -74,7 +74,6 @@ class DefaultLab:
         self,
         *,
         target: str,
-        workflow: str = "bindcraft",
         auto_confirm: bool = False,
         webhook_url: str | None = None,
         experiment_name: str | None = None,
@@ -86,7 +85,6 @@ class DefaultLab:
 
         Args:
             target: Target name or ID for binding experiments
-            workflow: Design workflow ("bindcraft" or "germinal")
             auto_confirm: Automatically confirm quote
             webhook_url: Webhook URL for status updates
             experiment_name: Custom experiment name
@@ -100,7 +98,7 @@ class DefaultLab:
         Example:
             from adaptyv import lab
 
-            @lab.experiment(target="PD-L1", workflow="bindcraft")
+            @lab.experiment(target="PD-L1")
             def design_pdl1():
                 return ["MVKVGVNG...", "MKVLVAG..."]
 
@@ -108,7 +106,6 @@ class DefaultLab:
         """
         return self._get_lab().experiment(
             target=target,
-            workflow=workflow,
             auto_confirm=auto_confirm,
             webhook_url=webhook_url,
             experiment_name=experiment_name,
@@ -189,28 +186,28 @@ class DefaultLab:
             timeout=timeout,
         )
 
-    def list_targets(self, *, page: int = 1, per_page: int = 50) -> list[dict[str, Any]]:
+    def list_targets(self, *, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
         """List available targets from catalog.
 
         For single page of results. Use list_all_targets() to iterate through all.
 
         Args:
-            page: Page number (1-indexed)
-            per_page: Items per page (max 50)
+            limit: Maximum number of targets to return (max 50)
+            offset: Number of targets to skip
 
         Returns:
             List of target dicts
         """
-        return self._get_lab().list_targets(page=page, per_page=per_page)
+        return self._get_lab().list_targets(limit=limit, offset=offset)
 
-    def list_all_targets(self, *, per_page: int = 50) -> Iterator[dict[str, Any]]:
+    def list_all_targets(self, *, limit: int = 50) -> Iterator[dict[str, Any]]:
         """Iterate through all targets from catalog with automatic pagination.
 
         This method handles pagination automatically, yielding one target at a time.
         Rate limits are handled by the underlying client's retry logic.
 
         Args:
-            per_page: Items per page (max 50)
+            limit: Items per page (max 50)
 
         Yields:
             Target dicts one at a time
@@ -221,7 +218,7 @@ class DefaultLab:
             for target in lab.list_all_targets():
                 print(target["name"])
         """
-        return self._get_lab().list_all_targets(per_page=per_page)
+        return self._get_lab().list_all_targets(limit=limit)
 
     def search_targets(self, query: str, *, limit: int = 50) -> list[dict[str, Any]]:
         """Search targets by name.

@@ -1,33 +1,47 @@
-"""Type definitions for Adaptyv Lab SDK."""
+"""Type definitions for Adaptyv SDK."""
 
-from adaptyv.types.internal import (
-    CostEstimate,
-    DesignMetrics,
-    ExperimentResult,
+from adaptyv.types.generated import (
+    AssayCost,
+    CostBreakdown,
+    CostEstimateResponse,
     ExperimentStatus,
-    FilterStatus,
-    ResultStatus,
-    ReviewStatus,
-    Target,
+    MaterialCost,
+    ResultInfoModel,
+    ResultList,
+    ResultListItem,
+    SequenceAddRequest,
+    SequenceAddResponse,
+    SequenceEntry,
+    SequenceExperimentRef,
+    SequenceInfoModel,
+    SequenceList,
+    SequenceListItem,
 )
-from adaptyv.types.results import (
-    ExperimentOutcomes,
-    FailurePoint,
-    SequenceOutcome,
+from adaptyv.types.internal import (
+    ExperimentResult,
+    Target,
 )
 
 __all__ = [
     # Internal types
     "ExperimentResult",
-    "Target",
-    "CostEstimate",
-    "DesignMetrics",
-    "FilterStatus",
-    "ReviewStatus",
     "ExperimentStatus",
-    "ResultStatus",
-    # BO/AL types
-    "FailurePoint",
-    "SequenceOutcome",
-    "ExperimentOutcomes",
+    "Target",
+    # Cost types (from generated)
+    "AssayCost",
+    "CostBreakdown",
+    "CostEstimateResponse",
+    "MaterialCost",
+    # Sequence types
+    "SequenceEntry",
+    "SequenceExperimentRef",
+    "SequenceListItem",
+    "SequenceList",
+    "SequenceInfoModel",
+    "SequenceAddRequest",
+    "SequenceAddResponse",
+    # Result types
+    "ResultListItem",
+    "ResultList",
+    "ResultInfoModel",
 ]

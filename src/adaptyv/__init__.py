@@ -1,11 +1,11 @@
-"""Adaptyv Lab SDK - Python client for Foundry API and design workflows."""
+"""Adaptyv SDK - Python client for Foundry API."""
 
 import importlib
 from typing import Any
 
 # Only import lightweight exceptions eagerly - these are always needed for error handling
 from adaptyv.exceptions import (
-    AdaptyvLabError,
+    AdaptyvError,
     APIError,
     AuthenticationError,
     NotFoundError,
@@ -21,37 +21,14 @@ __all__ = [
     "Lab",
     "FoundryClient",
     "FoundryClientProtocol",
-    "InternalFoundryClient",
-    "FoundrySettings",
+    "AdaptyvConfig",
     "RetryConfig",
+    # Types
     "ExperimentResult",
+    "ExperimentStatus",
     "Target",
-    "CostEstimate",
-    # Failure tracking
-    "FailureTracker",
-    "FailureStats",
-    "SequenceResult",
-    "ResultStatus",
-    # Results parsing
-    "parse_data_package",
-    # Workflows - BindCraft
-    "BindCraftConfig",
-    "BindCraftDesign",
-    "BindCraftRun",
-    "BindCraftWorkflow",
-    # Workflows - Design-A-Protein
-    "DesignAProteinConfig",
-    "DesignAProteinDesign",
-    "DesignAProteinRun",
-    "DesignAProteinWorkflow",
-    # Workflows - Germinal
-    "GerminalAdvancedConfig",
-    "GerminalConfig",
-    "GerminalDesign",
-    "GerminalRun",
-    "GerminalWorkflow",
     # Exceptions
-    "AdaptyvLabError",
+    "AdaptyvError",
     "AuthenticationError",
     "APIError",
     "NotFoundError",
@@ -68,45 +45,13 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     # Core
     "FoundryClient": ("adaptyv.client.foundry", "FoundryClient"),
     "FoundryClientProtocol": ("adaptyv.client.foundry", "FoundryClientProtocol"),
-    "InternalFoundryClient": ("adaptyv.client.foundry", "InternalFoundryClient"),
-    "FoundrySettings": ("adaptyv.config", "FoundrySettings"),
+    "AdaptyvConfig": ("adaptyv.config", "AdaptyvConfig"),
     "RetryConfig": ("adaptyv.config", "RetryConfig"),
     "Lab": ("adaptyv.lab", "Lab"),
     # Types
-    "CostEstimate": ("adaptyv.types.internal", "CostEstimate"),
     "ExperimentResult": ("adaptyv.types.internal", "ExperimentResult"),
-    "ResultStatus": ("adaptyv.types.internal", "ResultStatus"),
+    "ExperimentStatus": ("adaptyv.types.internal", "ExperimentStatus"),
     "Target": ("adaptyv.types.internal", "Target"),
-    # Results
-    "FailureStats": ("adaptyv.results.failures", "FailureStats"),
-    "FailureTracker": ("adaptyv.results.failures", "FailureTracker"),
-    "SequenceResult": ("adaptyv.results.failures", "SequenceResult"),
-    "parse_data_package": ("adaptyv.results.parser", "parse_data_package"),
-    # Workflows - BindCraft
-    "BindCraftConfig": ("adaptyv.workflows.bindcraft", "BindCraftConfig"),
-    "BindCraftDesign": ("adaptyv.workflows.bindcraft", "BindCraftDesign"),
-    "BindCraftRun": ("adaptyv.workflows.bindcraft", "BindCraftRun"),
-    "BindCraftWorkflow": ("adaptyv.workflows.bindcraft", "BindCraftWorkflow"),
-    # Workflows - Design-A-Protein
-    "DesignAProteinConfig": (
-        "adaptyv.workflows.design_a_protein",
-        "DesignAProteinConfig",
-    ),
-    "DesignAProteinDesign": (
-        "adaptyv.workflows.design_a_protein",
-        "DesignAProteinDesign",
-    ),
-    "DesignAProteinRun": ("adaptyv.workflows.design_a_protein", "DesignAProteinRun"),
-    "DesignAProteinWorkflow": (
-        "adaptyv.workflows.design_a_protein",
-        "DesignAProteinWorkflow",
-    ),
-    # Workflows - Germinal
-    "GerminalAdvancedConfig": ("adaptyv.workflows.germinal", "GerminalAdvancedConfig"),
-    "GerminalConfig": ("adaptyv.workflows.germinal", "GerminalConfig"),
-    "GerminalDesign": ("adaptyv.workflows.germinal", "GerminalDesign"),
-    "GerminalRun": ("adaptyv.workflows.germinal", "GerminalRun"),
-    "GerminalWorkflow": ("adaptyv.workflows.germinal", "GerminalWorkflow"),
 }
 
 # Cache for lazy-loaded modules to avoid repeated imports

@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 360" width="700" height="360">
+  <style>
+
+    .terminal {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: #0A1014;
+      color: #F8FAFC;
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .terminal-header {
+      background: #1C2432;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .terminal-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .dot-red { background: #EF4444; }
+    .dot-yellow { background: #F59E0B; }
+    .dot-green { background: #10B981; }
+
+    .terminal-title {
+      flex: 1;
+      text-align: center;
+      color: #94A3B8;
+      font-size: 12px;
+      margin-right: 52px;
+    }
+
+    .terminal-body {
+      padding: 24px;
+      font-size: 12px;
+      line-height: 17px;
+    }
+
+    .line {
+      white-space: pre;
+      opacity: 0;
+    }
+
+    .prompt-symbol { color: #36B7F6; }
+    .prompt-text { color: #F8FAFC; }
+    .output { color: #94A3B8; }
+    .success { color: #10B981; }
+    .brand { color: #36B7F6; }
+    .muted { color: #64748B; }
+    .warning { color: #F59E0B; }
+
+    /* 10s cycle for the autonomous loop animation */
+    @keyframes appear-0 {
+      0% { opacity: 0; } 2% { opacity: 1; } 90% { opacity: 1; } 95% { opacity: 0; } 100% { opacity: 0; }
+    }
+    @keyframes appear-8 {
+      0%, 8% { opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 95% { opacity: 0; } 100% { opacity: 0; }
+    }
+    @keyframes appear-16 {
+      0%, 16% { opacity: 0; } 18% { opacity: 1; } 90% { opacity: 1; } 95% { opacity: 0; } 100% { opacity: 0; }
+    }
+    @keyframes appear-28 {
+      0%, 28% { opacity: 0; } 30% { opacity: 1; } 90% { opacity: 1; } 95% { opacity: 0; } 100% { opacity: 0; }
+    }
+    @keyframes appear-40 {
+      0%, 40% { opacity: 0; } 42% { opacity: 1; } 90% { opacity: 1; } 95% { opacity: 0; } 100% { opacity: 0; }
+    }
+    @keyframes appear-52 {
+      0%, 52% { opacity: 0; } 54% { opacity: 1; } 90% { opacity: 1; } 95% { opacity: 0; } 100% { opacity: 0; }
+    }
+    @keyframes appear-64 {
+      0%, 64% { opacity: 0; } 66% { opacity: 1; } 90% { opacity: 1; } 95% { opacity: 0; } 100% { opacity: 0; }
+    }
+    @keyframes appear-76 {
+      0%, 76% { opacity: 0; } 78% { opacity: 1; } 90% { opacity: 1; } 95% { opacity: 0; } 100% { opacity: 0; }
+    }
+
+  </style>
+  <foreignObject width="100%" height="100%">
+    <div xmlns="http://www.w3.org/1999/xhtml" class="terminal">
+      <div class="terminal-header">
+        <div class="terminal-dot dot-red"></div>
+        <div class="terminal-dot dot-yellow"></div>
+        <div class="terminal-dot dot-green"></div>
+        <div class="terminal-title">adaptyv-sdk</div>
+      </div>
+      <div class="terminal-body">
+        <div class="line" style="animation: appear-0 10s infinite;"><span class="prompt-symbol">  &gt; </span><span class="prompt-text">/experiment-loop</span></div>
+        <div class="line output" style="animation: appear-8 10s infinite;"> </div>
+        <div class="line brand" style="animation: appear-8 10s infinite;">  Agent-in-the-Loop Mode</div>
+        <div class="line muted" style="animation: appear-8 10s infinite;">  Autonomous optimization - no human input required</div>
+        <div class="line output" style="animation: appear-16 10s infinite;"> </div>
+        <div class="line brand" style="animation: appear-16 10s infinite;">  Cycle 1</div>
+        <div class="line output" style="animation: appear-16 10s infinite;"> </div>
+        <div class="line output" style="animation: appear-28 10s infinite;">  <span class="success">✓</span> Generating designs              <span class="muted">16 variants</span></div>
+        <div class="line output" style="animation: appear-40 10s infinite;">  <span class="success">✓</span> Submitting to Foundry           <span class="muted">exp_7f3a2b1c</span></div>
+        <div class="line output" style="animation: appear-52 10s infinite;">  <span class="success">✓</span> Waiting for results...          <span class="muted">24 measurements</span></div>
+        <div class="line output" style="animation: appear-64 10s infinite;">  <span class="success">✓</span> Analyzing binding data          <span class="muted">Best: 2.3 nM</span></div>
+        <div class="line output" style="animation: appear-64 10s infinite;"> </div>
+        <div class="line success" style="animation: appear-76 10s infinite;">  Cycle complete. Starting next iteration...</div>
+        <div class="line output" style="animation: appear-76 10s infinite;"> </div>
+        <div class="line muted" style="animation: appear-76 10s infinite;">  Progress: 1 cycle | 16 designs | Best Kd: 2.3 nM</div>
+      </div>
+    </div>
+  </foreignObject>
+</svg>
