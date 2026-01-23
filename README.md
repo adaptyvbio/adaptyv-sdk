@@ -126,6 +126,19 @@ result = lab.confirm_experiment("experiment-uuid")
 print(f"Confirmed at: {result.confirmed_at}")
 ```
 
+### Get Results
+
+```python
+from adaptyv import FoundryClient
+
+client = FoundryClient(api_key="...", base_url="https://api.adaptyvbio.com")
+
+# Retrieve results for a completed experiment
+results = client.experiments.get_results("experiment-uuid")
+for sequence_name, data in results.items():
+    print(f"{sequence_name}: {data}")
+```
+
 ---
 
 ## Examples
