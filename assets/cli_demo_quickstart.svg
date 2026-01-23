@@ -59,45 +59,45 @@
     .string { color: #C3E88D; }
     .keyword { color: #F8FAFC; }
 
-    /* 10s cycle: content 0-60%, hold 60-70%, fade 70-75%, black 75-100% */
+    /* 10s cycle: gradual fades with ease-in-out */
     @keyframes appear-0 {
-      0% { opacity: 0; } 2% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0% { opacity: 0; } 4% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-5 {
-      0%, 5% { opacity: 0; } 7% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 5% { opacity: 0; } 9% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-10 {
-      0%, 10% { opacity: 0; } 12% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 10% { opacity: 0; } 14% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-15 {
-      0%, 15% { opacity: 0; } 17% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 15% { opacity: 0; } 19% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-20 {
-      0%, 20% { opacity: 0; } 22% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 20% { opacity: 0; } 24% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-25 {
-      0%, 25% { opacity: 0; } 27% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 25% { opacity: 0; } 29% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-30 {
-      0%, 30% { opacity: 0; } 32% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 30% { opacity: 0; } 34% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-35 {
-      0%, 35% { opacity: 0; } 37% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 35% { opacity: 0; } 39% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-40 {
-      0%, 40% { opacity: 0; } 42% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 40% { opacity: 0; } 44% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-45 {
-      0%, 45% { opacity: 0; } 47% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 45% { opacity: 0; } 49% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-50 {
-      0%, 50% { opacity: 0; } 52% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 50% { opacity: 0; } 54% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-55 {
-      0%, 55% { opacity: 0; } 57% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 55% { opacity: 0; } 59% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
     @keyframes appear-60 {
-      0%, 60% { opacity: 0; } 62% { opacity: 1; } 70% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 0; }
+      0%, 60% { opacity: 0; } 64% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
     }
 
     @keyframes blink {

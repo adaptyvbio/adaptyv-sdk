@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  Python SDK for AI-powered protein binding experiments
+  Run protein binding experiments from Python
 </p>
 
 <p align="center">
@@ -42,18 +42,10 @@ print(f"Experiment: {result.experiment_url}")
 
 ## Features
 
-- **Zero-config initialization** - reads `ADAPTYV_API_KEY` and `ADAPTYV_API_URL` from environment
-- **Automatic retry** - exponential backoff with jitter for rate limits and server errors
-- **Type-safe** - full IDE support with type hints
-- **Context manager support** - automatic resource cleanup
-
----
-
-## Workflow
-
-<p align="center">
-  <img src="assets/api_flow.svg" width="550" alt="API Flow">
-</p>
+- Reads API credentials from environment (`ADAPTYV_API_KEY` and `ADAPTYV_API_URL`)
+- Retries failed requests with backoff
+- Typed for IDE autocompletion
+- Cleans up connections automatically
 
 ---
 
@@ -134,7 +126,7 @@ print(f"Confirmed at: {result.confirmed_at}")
 
 ### Low-Level Client
 
-For advanced usage, use the `FoundryClient` directly:
+You can also use the client directly:
 
 ```python
 from adaptyv import FoundryClient

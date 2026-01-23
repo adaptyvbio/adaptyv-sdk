@@ -79,52 +79,59 @@
       opacity: 0;
     }
 
-    /* Staggered animations for flow steps - 8s cycle */
+    /* Staggered animations for flow steps - 8s cycle with smooth transitions */
     @keyframes flow-1 {
-      0%, 5% { opacity: 0; transform: translateY(10px); }
-      10%, 85% { opacity: 1; transform: translateY(0); }
-      90%, 100% { opacity: 0; transform: translateY(0); }
+      0%, 5% { opacity: 0; transform: translateY(8px); }
+      12% { opacity: 1; transform: translateY(0); }
+      82% { opacity: 1; transform: translateY(0); }
+      92%, 100% { opacity: 0; transform: translateY(0); }
     }
     @keyframes flow-2 {
-      0%, 15% { opacity: 0; transform: translateY(10px); }
-      20%, 85% { opacity: 1; transform: translateY(0); }
-      90%, 100% { opacity: 0; transform: translateY(0); }
+      0%, 15% { opacity: 0; transform: translateY(8px); }
+      22% { opacity: 1; transform: translateY(0); }
+      82% { opacity: 1; transform: translateY(0); }
+      92%, 100% { opacity: 0; transform: translateY(0); }
     }
     @keyframes flow-3 {
-      0%, 25% { opacity: 0; transform: translateY(10px); }
-      30%, 85% { opacity: 1; transform: translateY(0); }
-      90%, 100% { opacity: 0; transform: translateY(0); }
+      0%, 25% { opacity: 0; transform: translateY(8px); }
+      32% { opacity: 1; transform: translateY(0); }
+      82% { opacity: 1; transform: translateY(0); }
+      92%, 100% { opacity: 0; transform: translateY(0); }
     }
     @keyframes flow-4 {
-      0%, 35% { opacity: 0; transform: translateY(10px); }
-      40%, 85% { opacity: 1; transform: translateY(0); }
-      90%, 100% { opacity: 0; transform: translateY(0); }
+      0%, 35% { opacity: 0; transform: translateY(8px); }
+      42% { opacity: 1; transform: translateY(0); }
+      82% { opacity: 1; transform: translateY(0); }
+      92%, 100% { opacity: 0; transform: translateY(0); }
     }
 
     @keyframes arrow-1 {
       0%, 12% { opacity: 0; }
-      17%, 85% { opacity: 1; }
-      90%, 100% { opacity: 0; }
+      19% { opacity: 1; }
+      82% { opacity: 1; }
+      92%, 100% { opacity: 0; }
     }
     @keyframes arrow-2 {
       0%, 22% { opacity: 0; }
-      27%, 85% { opacity: 1; }
-      90%, 100% { opacity: 0; }
+      29% { opacity: 1; }
+      82% { opacity: 1; }
+      92%, 100% { opacity: 0; }
     }
     @keyframes arrow-3 {
       0%, 32% { opacity: 0; }
-      37%, 85% { opacity: 1; }
-      90%, 100% { opacity: 0; }
+      39% { opacity: 1; }
+      82% { opacity: 1; }
+      92%, 100% { opacity: 0; }
     }
 
-    .step-1 .step-box, .step-1 .step-label { animation: flow-1 8s infinite; }
-    .step-2 .step-box, .step-2 .step-label { animation: flow-2 8s infinite; }
-    .step-3 .step-box, .step-3 .step-label { animation: flow-3 8s infinite; }
-    .step-4 .step-box, .step-4 .step-label { animation: flow-4 8s infinite; }
+    .step-1 .step-box, .step-1 .step-label { animation: flow-1 8s ease-in-out infinite; }
+    .step-2 .step-box, .step-2 .step-label { animation: flow-2 8s ease-in-out infinite; }
+    .step-3 .step-box, .step-3 .step-label { animation: flow-3 8s ease-in-out infinite; }
+    .step-4 .step-box, .step-4 .step-label { animation: flow-4 8s ease-in-out infinite; }
 
-    .arrow-1 { animation: arrow-1 8s infinite; }
-    .arrow-2 { animation: arrow-2 8s infinite; }
-    .arrow-3 { animation: arrow-3 8s infinite; }
+    .arrow-1 { animation: arrow-1 8s ease-in-out infinite; }
+    .arrow-2 { animation: arrow-2 8s ease-in-out infinite; }
+    .arrow-3 { animation: arrow-3 8s ease-in-out infinite; }
 
     @keyframes glow-pulse {
       0%, 100% { filter: drop-shadow(0 0 4px rgba(54,183,246,0.3)); }
