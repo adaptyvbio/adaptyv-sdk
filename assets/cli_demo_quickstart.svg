@@ -45,7 +45,6 @@
 
     .line {
       white-space: pre;
-      opacity: 0;
     }
 
     .prompt-symbol { color: #36B7F6; }
@@ -58,47 +57,6 @@
     .function { color: #82AAFF; }
     .string { color: #C3E88D; }
     .keyword { color: #F8FAFC; }
-
-    /* 10s cycle: gradual fades with ease-in-out */
-    @keyframes appear-0 {
-      0% { opacity: 0; } 4% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-5 {
-      0%, 5% { opacity: 0; } 9% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-10 {
-      0%, 10% { opacity: 0; } 14% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-15 {
-      0%, 15% { opacity: 0; } 19% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-20 {
-      0%, 20% { opacity: 0; } 24% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-25 {
-      0%, 25% { opacity: 0; } 29% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-30 {
-      0%, 30% { opacity: 0; } 34% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-35 {
-      0%, 35% { opacity: 0; } 39% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-40 {
-      0%, 40% { opacity: 0; } 44% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-45 {
-      0%, 45% { opacity: 0; } 49% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-50 {
-      0%, 50% { opacity: 0; } 54% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-55 {
-      0%, 55% { opacity: 0; } 59% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
-    @keyframes appear-60 {
-      0%, 60% { opacity: 0; } 64% { opacity: 1; } 68% { opacity: 1; } 76% { opacity: 0; } 100% { opacity: 0; }
-    }
 
     @keyframes blink {
       0%, 100% { opacity: 1; }
@@ -119,22 +77,22 @@
         <div class="terminal-title">python</div>
       </div>
       <div class="terminal-body">
-        <div class="line" style="animation: appear-0 10s infinite;"><span class="prompt-symbol">&gt;&gt;&gt; </span><span class="keyword">from</span> <span class="primary">adaptyv</span> <span class="keyword">import</span> <span class="primary">Lab</span></div>
-        <div class="line output" style="animation: appear-5 10s infinite;"> </div>
-        <div class="line" style="animation: appear-5 10s infinite;"><span class="prompt-symbol">&gt;&gt;&gt; </span><span class="primary">lab</span> = <span class="primary">Lab</span>.<span class="function">setup</span>()</div>
-        <div class="line output" style="animation: appear-10 10s infinite;"> </div>
-        <div class="line" style="animation: appear-10 10s infinite;"><span class="prompt-symbol">&gt;&gt;&gt; </span><span class="primary">result</span> = <span class="primary">lab</span>.<span class="function">create_experiment</span>(</div>
-        <div class="line" style="animation: appear-15 10s infinite;"><span class="prompt-symbol">... </span>    <span class="primary">name</span>=<span class="string">"PD-L1 Binders"</span>,</div>
-        <div class="line" style="animation: appear-20 10s infinite;"><span class="prompt-symbol">... </span>    <span class="primary">sequences</span>=[<span class="string">"MVKVGVNG..."</span>, <span class="string">"MKVLVAG..."</span>],</div>
-        <div class="line" style="animation: appear-25 10s infinite;"><span class="prompt-symbol">... </span>    <span class="primary">target_id</span>=<span class="string">"abc123-..."</span>,</div>
-        <div class="line" style="animation: appear-30 10s infinite;"><span class="prompt-symbol">... </span>)</div>
-        <div class="line brand" style="animation: appear-35 10s infinite;">Submitting 2 sequences to Adaptyv Foundry...</div>
-        <div class="line success" style="animation: appear-40 10s infinite;">&#x2713; Experiment created: exp_abc123</div>
-        <div class="line output" style="animation: appear-45 10s infinite;"> </div>
-        <div class="line" style="animation: appear-50 10s infinite;"><span class="prompt-symbol">&gt;&gt;&gt; </span><span class="function">print</span>(<span class="primary">result</span>.<span class="primary">experiment_url</span>)</div>
-        <div class="line output" style="animation: appear-55 10s infinite;"><span class="brand">https://foundry.adaptyv.bio/experiments/exp_abc123</span></div>
-        <div class="line output" style="animation: appear-60 10s infinite;"> </div>
-        <div class="line output" style="animation: appear-60 10s infinite;"><span class="prompt-symbol">&gt;&gt;&gt; </span><span class="cursor">_</span></div>
+        <div class="line"><span class="prompt-symbol">&gt;&gt;&gt; </span><span class="keyword">from</span> <span class="primary">adaptyv</span> <span class="keyword">import</span> <span class="primary">Lab</span></div>
+        <div class="line output"> </div>
+        <div class="line"><span class="prompt-symbol">&gt;&gt;&gt; </span><span class="primary">lab</span> = <span class="primary">Lab</span>.<span class="function">setup</span>()</div>
+        <div class="line output"> </div>
+        <div class="line"><span class="prompt-symbol">&gt;&gt;&gt; </span><span class="primary">result</span> = <span class="primary">lab</span>.<span class="function">create_experiment</span>(</div>
+        <div class="line"><span class="prompt-symbol">... </span>    <span class="primary">name</span>=<span class="string">"PD-L1 Binders"</span>,</div>
+        <div class="line"><span class="prompt-symbol">... </span>    <span class="primary">sequences</span>=[<span class="string">"MVKVGVNG..."</span>, <span class="string">"MKVLVAG..."</span>],</div>
+        <div class="line"><span class="prompt-symbol">... </span>    <span class="primary">target_id</span>=<span class="string">"abc123-..."</span>,</div>
+        <div class="line"><span class="prompt-symbol">... </span>)</div>
+        <div class="line brand">Submitting 2 sequences to Adaptyv Foundry...</div>
+        <div class="line success">&#x2713; Experiment created: exp_abc123</div>
+        <div class="line output"> </div>
+        <div class="line"><span class="prompt-symbol">&gt;&gt;&gt; </span><span class="function">print</span>(<span class="primary">result</span>.<span class="primary">experiment_url</span>)</div>
+        <div class="line output"><span class="brand">https://foundry.adaptyv.bio/experiments/exp_abc123</span></div>
+        <div class="line output"> </div>
+        <div class="line output"><span class="prompt-symbol">&gt;&gt;&gt; </span><span class="cursor">_</span></div>
       </div>
     </div>
   </foreignObject>

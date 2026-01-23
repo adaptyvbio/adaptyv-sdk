@@ -28,7 +28,7 @@ pip install adaptyv-sdk
 ```python
 from adaptyv import lab
 
-# Zero configuration - reads ADAPTYV_API_KEY and ADAPTYV_API_URL from environment
+# Uses ADAPTYV_API_KEY and ADAPTYV_API_URL from your environment
 
 @lab.experiment(target="PD-L1")
 def design_binders():
@@ -42,10 +42,10 @@ print(f"Experiment: {result.experiment_url}")
 
 ## Features
 
-- Reads API credentials from environment (`ADAPTYV_API_KEY` and `ADAPTYV_API_URL`)
-- Retries failed requests with backoff
-- Typed for IDE autocompletion
-- Cleans up connections automatically
+- Picks up `ADAPTYV_API_KEY` and `ADAPTYV_API_URL` from environment
+- Retries on failure with exponential backoff
+- Type hints throughout
+- Context managers for cleanup
 
 ---
 
@@ -78,7 +78,7 @@ from adaptyv import lab
 # Single page
 targets = lab.list_targets()
 
-# All targets with automatic pagination
+# Iterate through all pages
 for target in lab.list_all_targets():
     print(target["name"])
 
@@ -94,7 +94,7 @@ from adaptyv import lab
 result = lab.create_experiment(
     name="My Experiment",
     sequences=["MVKVGVNG...", "MKVLVAG..."],
-    target_id="...",  # From targets catalog
+    target_id="...",  # from targets list
     experiment_type="screening",
 )
 
@@ -115,7 +115,7 @@ print(f"Status: {result.status}")
 ```python
 from adaptyv import lab
 
-# Waits for quote to be ready, then confirms
+# Waits for quote, then confirms
 result = lab.confirm_experiment("experiment-uuid")
 print(f"Confirmed at: {result.confirmed_at}")
 ```
@@ -124,9 +124,7 @@ print(f"Confirmed at: {result.confirmed_at}")
 
 ## Examples
 
-### Low-Level Client
-
-You can also use the client directly:
+### Using the client directly
 
 ```python
 from adaptyv import FoundryClient
@@ -144,7 +142,7 @@ estimate = client.experiments.cost_estimate({
 })
 ```
 
-### Error Handling
+### Errors
 
 ```python
 from adaptyv import lab, AuthenticationError, NotFoundError, RateLimitError

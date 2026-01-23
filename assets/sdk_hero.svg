@@ -149,7 +149,7 @@
         </svg>
         <h1 class="title">ADAPTYV SDK</h1>
       </div>
-      <p class="subtitle">Python SDK for AI-powered protein experiments</p>
+      <p class="subtitle">SDK to connect to the Adaptyv lab</p>
 
       <div class="flow-container">
         <div class="step step-1">
