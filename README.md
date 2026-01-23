@@ -32,7 +32,10 @@ from adaptyv import lab
 
 @lab.experiment(target="PD-L1")
 def design_binders():
-    return ["MVKVGVNG...", "MKVLVAG..."]
+    return {
+        "design_a": "MVKVGVNG...",
+        "design_b": "MKVLVAG...",
+    }
 
 result = design_binders()
 print(f"Experiment: {result.experiment_url}")
@@ -93,7 +96,10 @@ from adaptyv import lab
 
 result = lab.create_experiment(
     name="My Experiment",
-    sequences=["MVKVGVNG...", "MKVLVAG..."],
+    sequences={
+        "clone_1": "MVKVGVNG...",
+        "clone_2": "MKVLVAG...",
+    },
     target_id="...",  # from targets list
     experiment_type="screening",
 )
@@ -142,21 +148,6 @@ estimate = client.experiments.cost_estimate({
 })
 ```
 
-### Errors
-
-```python
-from adaptyv import lab, AuthenticationError, NotFoundError, RateLimitError
-
-try:
-    result = lab.create_experiment(...)
-except AuthenticationError:
-    print("Invalid API key")
-except NotFoundError as e:
-    print(f"Resource not found: {e}")
-except RateLimitError as e:
-    print(f"Rate limited, retry after {e.retry_after}s")
-```
-
 ---
 
 ## Development
@@ -176,8 +167,3 @@ ruff format src tests
 mypy src
 ```
 
----
-
-## License
-
-MIT
