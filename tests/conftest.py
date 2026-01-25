@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -51,3 +52,30 @@ def reset_http_client():
         _client_cache.clear()
     except ImportError:
         pass
+
+
+def wait_for_experiment(client, experiment_id: str, timeout: float = 60.0) -> None:
+    """Wait for experiment to become visible (eventual consistency).
+
+    Args:
+        client: FoundryClient instance.
+        experiment_id: Experiment ID to wait for.
+        timeout: Maximum wait time in seconds (default 60s).
+
+    Raises:
+        TimeoutError: If experiment not visible within timeout.
+    """
+    from adaptyv.exceptions import NotFoundError
+
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            client.experiments.get(experiment_id)
+            return  # Experiment is visible
+        except NotFoundError:
+            time.sleep(2)
+        except Exception as e:
+            # Log other errors but keep trying
+            print(f"Unexpected error waiting for experiment: {e}")
+            time.sleep(2)
+    raise TimeoutError(f"Experiment {experiment_id} not visible after {timeout}s")

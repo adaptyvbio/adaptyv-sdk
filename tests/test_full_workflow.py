@@ -48,7 +48,7 @@ def target_id(client: FoundryClient) -> str:
 def wait_for_experiment(
     client: FoundryClient,
     experiment_id: str,
-    timeout: float = 30.0,
+    timeout: float = 60.0,
 ) -> None:
     """Wait for experiment to become visible (eventual consistency).
 
@@ -286,12 +286,12 @@ class TestConfirmedFlagWorkflow:
         created = client.experiments.create(
             name="SDK Test - Direct Confirm",
             experiment_spec=spec,
-                        confirmed=True,  # Skip draft!
+            confirmed=True,  # Skip draft!
         )
         assert created.experiment_id
 
-        # Should already be past draft/waiting_for_confirmation
-        time.sleep(2)  # Brief wait for consistency
+        # Wait for experiment to be visible (eventual consistency)
+        wait_for_experiment(client, created.experiment_id)
         exp = client.experiments.get(created.experiment_id)
         # When confirmed=True, experiment should skip draft state
         assert exp.status != ExperimentStatus.draft

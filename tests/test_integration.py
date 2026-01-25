@@ -53,6 +53,33 @@ def get_with_retry(
             time.sleep(delay)
 
 
+def wait_for_experiment(
+    client: FoundryClient,
+    experiment_id: str,
+    timeout: float = 60.0,
+) -> None:
+    """Wait for experiment to become visible (eventual consistency).
+
+    Args:
+        client: FoundryClient instance.
+        experiment_id: Experiment ID to wait for.
+        timeout: Maximum wait time in seconds.
+
+    Raises:
+        TimeoutError: If experiment not visible within timeout.
+    """
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            client.experiments.get(experiment_id)
+            return  # Experiment is visible
+        except NotFoundError:
+            time.sleep(2)
+        except Exception:
+            time.sleep(2)
+    raise TimeoutError(f"Experiment {experiment_id} not visible after {timeout}s")
+
+
 @pytest.fixture
 def client() -> FoundryClient:
     return get_client()
@@ -121,7 +148,7 @@ class TestExperimentsAPI:
         assert created.experiment_id, "No experiment ID returned"
 
         # Wait for eventual consistency then verify experiment exists
-        time.sleep(2)
+        wait_for_experiment(client, created.experiment_id)
         exp = client.experiments.get(created.experiment_id)
 
         assert exp.id == created.experiment_id
@@ -147,7 +174,7 @@ class TestExperimentsAPI:
         created = client.experiments.create(name="SDK Screening Test", experiment_spec=spec)
         assert created.experiment_id
 
-        time.sleep(2)
+        wait_for_experiment(client, created.experiment_id)
         exp = client.experiments.get(created.experiment_id)
         assert exp.experiment_spec.experiment_type == ExperimentType.screening
 
@@ -155,7 +182,7 @@ class TestExperimentsAPI:
     def test_list_updates_after_create(self, client: FoundryClient, sample_spec: ExperimentSpec) -> None:
         """Verify updates are tracked after experiment creation."""
         created = client.experiments.create(name="SDK Updates Test", experiment_spec=sample_spec)
-        time.sleep(2)
+        wait_for_experiment(client, created.experiment_id)
 
         updates = client.experiments.list_updates(created.experiment_id, limit=10)
         assert hasattr(updates, "updates")
@@ -165,7 +192,7 @@ class TestExperimentsAPI:
     def test_get_results_empty_for_new_experiment(self, client: FoundryClient, sample_spec: ExperimentSpec) -> None:
         """Verify results endpoint works (returns empty for new experiment)."""
         created = client.experiments.create(name="SDK Results Test", experiment_spec=sample_spec)
-        time.sleep(2)
+        wait_for_experiment(client, created.experiment_id)
 
         results = client.experiments.get_results(created.experiment_id)
         assert results is not None
@@ -246,6 +273,8 @@ class TestLabIntegration:
     @pytest.mark.slow
     def test_create_and_verify_experiment(self, lab: Lab) -> None:
         """Create experiment via Lab and verify it exists."""
+        from adaptyv.client.foundry import get_client
+
         targets = lab.list_targets(limit=1)
         exp_name = f"SDK Lab Test - {time.time()}"
 
@@ -259,7 +288,9 @@ class TestLabIntegration:
         assert result.experiment_id is not None
         assert result.sequences_submitted == 1
 
-        time.sleep(2)
+        # Use wait_for_experiment with underlying client
+        client = get_client()
+        wait_for_experiment(client, result.experiment_id)
         exp = lab.get_experiment(result.experiment_id)
         assert exp.id == result.experiment_id
         assert exp.name == exp_name
