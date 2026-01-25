@@ -33,6 +33,7 @@ from adaptyv.types.generated import (
     ExperimentInvoiceResponse,
     ExperimentQuoteResponse,
     ExperimentSpec,
+    ExperimentType,
     ExpInfo,
     ExpList,
     ResultInfoModel,
@@ -295,6 +296,31 @@ class ExperimentsAPI:
         """
         if isinstance(experiment_spec, dict):
             experiment_spec = ExperimentSpec(**experiment_spec)
+
+        # Client-side validation for experiment-type requirements
+        exp_type = experiment_spec.experiment_type
+
+        # Validate sequences are provided
+        if not experiment_spec.sequences:
+            raise ValidationError("Experiment requires at least one sequence")
+
+        # Affinity and screening require target_id
+        if exp_type in (ExperimentType.affinity, ExperimentType.screening):
+            if not experiment_spec.target_id:
+                raise ValidationError(
+                    f"{exp_type.value} experiments require target_id"
+                )
+
+        # Affinity requires antigen_concentrations
+        if exp_type == ExperimentType.affinity:
+            if not experiment_spec.antigen_concentrations:
+                raise ValidationError(
+                    "Affinity experiments require antigen_concentrations"
+                )
+
+        # n_replicates must be >= 1 if provided
+        if experiment_spec.n_replicates is not None and experiment_spec.n_replicates < 1:
+            raise ValidationError("n_replicates must be >= 1")
 
         request = CreateExpRequest(
             name=name,
@@ -832,7 +858,7 @@ class FoundryClient:
                     "Request rejected. API discards error details (foundry-api-public#14). "
                     "Common causes: (1) API key lacks create_experiment permission, "
                     "(2) missing target_id, (3) empty sequences, (4) invalid UUIDs. "
-                    "Contact foundry@adaptyvbio.com to verify API key permissions."
+                    "Contact support@adaptyvbio.com to verify API key permissions."
                 )
             raise ValidationError(f"Bad request: {error_msg or body}")
 
