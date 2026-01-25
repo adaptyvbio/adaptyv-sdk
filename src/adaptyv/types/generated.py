@@ -172,6 +172,9 @@ class UpdateList(BaseModel):
 
 class ExpList(BaseModel):
     experiments: list[ExpListItem] = Field(..., description="Array of experiment summaries")
+    total: int = Field(..., description="Total number of experiments available across all pages", ge=0)
+    count: int = Field(..., description="Number of items returned in this response", ge=0)
+    offset: int = Field(..., description="Offset from the start of the result set", ge=0)
 
 
 class SequenceInput(BaseModel):
