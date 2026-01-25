@@ -67,7 +67,7 @@ Set your credentials as environment variables:
 
 ```bash
 export ADAPTYV_API_KEY=your_api_key
-export ADAPTYV_API_URL=https://api.adaptyvbio.com
+export ADAPTYV_API_URL=https://foundry-api-public.adaptyvbio.com/api/v1
 export ADAPTYV_ORGANIZATION_ID=your_org_id  # Optional
 ```
 
@@ -78,7 +78,7 @@ from adaptyv import Lab
 
 lab = Lab.setup(
     api_key="your_api_key",
-    base_url="https://api.adaptyvbio.com",
+    base_url="https://foundry-api-public.adaptyvbio.com/api/v1",
     organization_id="your_org_id",  # Optional
 )
 ```
@@ -145,7 +145,7 @@ print(f"Confirmed at: {result.confirmed_at}")
 ```python
 from adaptyv import FoundryClient
 
-client = FoundryClient(api_key="...", base_url="https://api.adaptyvbio.com")
+client = FoundryClient(api_key="...", base_url="https://foundry-api-public.adaptyvbio.com/api/v1")
 
 # Retrieve results for a completed experiment
 results = client.experiments.get_results("experiment-uuid")
@@ -162,7 +162,7 @@ for result in results.results:
 ```python
 from adaptyv import FoundryClient
 
-client = FoundryClient(api_key="...", base_url="https://api.adaptyvbio.com")
+client = FoundryClient(api_key="...", base_url="https://foundry-api-public.adaptyvbio.com/api/v1")
 
 # List experiments
 experiments = client.experiments.list()

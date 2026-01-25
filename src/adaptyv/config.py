@@ -11,7 +11,7 @@ DEFAULT_TIMEOUT_SECONDS = 30
 DEFAULT_RETRIES = 3
 
 # Default API URL
-FOUNDRY_API_URL = "https://foundry-api.adaptyvbio.com/api/v1"
+FOUNDRY_API_URL = "https://foundry-api-public.adaptyvbio.com/api/v1"
 
 # Retry configuration defaults (exponential backoff)
 DEFAULT_RETRY_MAX_ATTEMPTS = 3
