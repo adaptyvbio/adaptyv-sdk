@@ -238,7 +238,7 @@ class TestSequenceMetadata:
             target_id=target_id,
             sequences={
                 "scfv_1": {
-                    "fasta": "QVQLVQSGAEVKKPGASVKVSCKASGYTFT",
+                    "aa_string": "QVQLVQSGAEVKKPGASVKVSCKASGYTFT",
                     "control": False,
                     "metadata": {
                         "type": "sc_fv",
