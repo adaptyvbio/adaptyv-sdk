@@ -75,6 +75,9 @@ class TestExperimentsAPI:
                             "created_at": "2024-01-01T00:00:00Z",
                         }
                     ],
+                    "total": 1,
+                    "count": 1,
+                    "offset": 0,
                 },
             )
         )
@@ -89,7 +92,7 @@ class TestExperimentsAPI:
     def test_list_experiments_with_filters(self, client: FoundryClient) -> None:
         """Should pass filter params to API."""
         route = respx.get("https://api.test.com/experiments").mock(
-            return_value=Response(200, json={"experiments": []})
+            return_value=Response(200, json={"experiments": [], "total": 0, "count": 0, "offset": 5})
         )
 
         client.experiments.list(limit=10, offset=5, status="done", search="test")

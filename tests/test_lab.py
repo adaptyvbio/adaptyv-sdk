@@ -20,6 +20,7 @@ def make_experiment_response(
     experiment_id: str = "exp-123",
     name: str = "Test",
     experiment_url: str = "https://app.example.com/exp/123",
+    experiment_type: str = "thermostability",
 ) -> dict:
     """Create a mock experiment response."""
     return {
@@ -27,7 +28,7 @@ def make_experiment_response(
         "name": name,
         "code": "EXP-001",
         "status": "waiting_for_confirmation",
-        "experiment_spec": {"experiment_type": "screening", "sequences": {}},
+        "experiment_spec": {"experiment_type": experiment_type, "sequences": {}},
         "created_at": "2024-01-01T00:00:00Z",
         "results_status": "none",
         "experiment_url": experiment_url,
@@ -110,6 +111,7 @@ class TestCreateExperiment:
         result = lab.create_experiment(
             name="Test",
             sequences=["MVKVGVNG", "MKVLVAG"],
+            experiment_type="thermostability",
         )
 
         assert result.experiment_id == "exp-123"
@@ -128,6 +130,7 @@ class TestCreateExperiment:
         result = lab.create_experiment(
             name="Test",
             sequences={"my_design_1": "MVKVGVNG", "my_design_2": "MKVLVAG"},
+            experiment_type="thermostability",
         )
 
         assert result.sequences_submitted == 2
@@ -154,6 +157,7 @@ class TestLabContextManager:
             result = lab.create_experiment(
                 name="Test",
                 sequences=["MVKVGVNG"],
+                experiment_type="thermostability",
             )
             assert result.experiment_id == "exp-123"
 
