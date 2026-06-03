@@ -6,8 +6,6 @@ Tests all 5 experiment types with proper validation.
 from __future__ import annotations
 
 import os
-import time
-from typing import Any
 
 import pytest
 from dotenv import load_dotenv
@@ -16,7 +14,7 @@ load_dotenv()
 
 from adaptyv import FoundryClient
 from adaptyv.client.foundry import get_client
-from adaptyv.exceptions import APIError, ValidationError
+from adaptyv.exceptions import ValidationError
 from adaptyv.types.generated import ExperimentSpec, ExperimentType, Method
 
 pytestmark = pytest.mark.skipif(
@@ -34,7 +32,7 @@ def client() -> FoundryClient:
 def target_id(client: FoundryClient) -> str:
     """Get first available target."""
     targets = client.targets.list(limit=1)
-    return targets.targets[0].id
+    return targets.items[0].id
 
 
 class TestAffinityExperiments:
@@ -345,20 +343,22 @@ class TestExperimentsListFilters:
     def test_list_with_limit(self, client: FoundryClient) -> None:
         """Test listing with limit parameter."""
         result = client.experiments.list(limit=5)
-        assert hasattr(result, "experiments")
-        assert len(result.experiments) <= 5
+        assert hasattr(result, "items")
+        assert len(result.items) <= 5
 
     def test_list_with_search(self, client: FoundryClient) -> None:
         """Test listing with search filter."""
         result = client.experiments.list(search="SDK Test", limit=10)
-        assert hasattr(result, "experiments")
+        assert hasattr(result, "items")
 
     def test_list_with_status(self, client: FoundryClient) -> None:
-        """Test listing with status filter."""
-        result = client.experiments.list(status="done", limit=10)
-        assert hasattr(result, "experiments")
+        """Test listing with a status filter expressed as a filter s-expression."""
+        result = client.experiments.list(filter='(= status "done")', limit=10)
+        assert hasattr(result, "items")
 
     def test_list_with_multiple_statuses(self, client: FoundryClient) -> None:
-        """Test listing with multiple status filters (comma-separated)."""
-        result = client.experiments.list(status="done,in_production", limit=10)
-        assert hasattr(result, "experiments")
+        """Test listing with a multi-status filter s-expression."""
+        result = client.experiments.list(
+            filter='(in status "done" "in_production")', limit=10
+        )
+        assert hasattr(result, "items")

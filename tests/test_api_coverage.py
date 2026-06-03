@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import functools
 import time
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, TypeVar
 
 import pytest
 import respx
@@ -27,6 +27,8 @@ from adaptyv.types.generated import (
     ExpInfo,
     ResultsStatus,
 )
+
+F = TypeVar("F")
 
 
 def skip_on_backend_error(func: F) -> F:
@@ -180,12 +182,12 @@ class TestTargetsAPIIntegration:
         """List targets returns results."""
         result = ada_client.targets.list(limit=10)
         assert result.total > 0
-        assert len(result.targets) > 0
+        assert len(result.items) > 0
 
     def test_get_target(self, ada_client: FoundryClient) -> None:
         """Get specific target by ID."""
         targets = ada_client.targets.list(limit=1)
-        target_id = targets.targets[0].id
+        target_id = targets.items[0].id
 
         result = ada_client.targets.get(target_id)
         assert result.id == target_id
@@ -195,12 +197,12 @@ class TestTargetsAPIIntegration:
         """Search for PD-L1 targets."""
         result = ada_client.targets.search("PD-L1", limit=10)
         # May or may not find results depending on catalog
-        assert hasattr(result, "targets")
+        assert hasattr(result, "items")
 
     def test_search_targets_empty(self, ada_client: FoundryClient) -> None:
         """Search for non-existent target returns empty."""
         result = ada_client.targets.search("ZZZNONEXISTENT999", limit=10)
-        assert len(result.targets) == 0
+        assert len(result.items) == 0
 
 
 @pytest.mark.integration
@@ -211,16 +213,16 @@ class TestExperimentsAPIReadIntegration:
     def test_list_experiments(self, ada_client: FoundryClient) -> None:
         """List experiments returns results."""
         result = ada_client.experiments.list(limit=10)
-        assert hasattr(result, "experiments")
+        assert hasattr(result, "items")
 
     @skip_on_backend_error
     def test_list_experiments_with_filters(self, ada_client: FoundryClient) -> None:
         """List experiments with status filter."""
         result = ada_client.experiments.list(
             limit=10,
-            status="done",
+            filter='(= status "done")',
         )
-        assert hasattr(result, "experiments")
+        assert hasattr(result, "items")
 
     @skip_on_backend_error
     def test_cost_estimate(self, ada_client: FoundryClient) -> None:
@@ -242,7 +244,7 @@ class TestGlobalUpdatesAPI:
         """List global updates feed."""
         try:
             result = ada_client.updates.list(limit=10)
-            assert hasattr(result, "updates")
+            assert hasattr(result, "items")
         except APIError as e:
             if e.status_code == 403:
                 pytest.skip("API key lacks updates permission")
@@ -257,14 +259,14 @@ class TestSequencesAPIIntegration:
     def test_list_sequences(self, ada_client: FoundryClient) -> None:
         """List sequences returns results."""
         result = ada_client.sequences.list(limit=10)
-        assert hasattr(result, "sequences")
+        assert hasattr(result, "items")
         assert hasattr(result, "total")
 
     @skip_on_backend_error
     def test_list_sequences_with_search(self, ada_client: FoundryClient) -> None:
         """Search sequences by name."""
         result = ada_client.sequences.list(search="design", limit=10)
-        assert hasattr(result, "sequences")
+        assert hasattr(result, "items")
 
     @skip_on_backend_error
     def test_get_sequence(self, ada_client: FoundryClient) -> None:
@@ -286,7 +288,7 @@ class TestResultsAPIIntegration:
     def test_list_results(self, ada_client: FoundryClient) -> None:
         """List results returns structure."""
         result = ada_client.results.list(limit=10)
-        assert hasattr(result, "results")
+        assert hasattr(result, "items")
         assert hasattr(result, "total")
 
     @skip_on_backend_error
@@ -306,7 +308,7 @@ class TestResultsAPIIntegration:
         # Find an experiment with results (filter by results_status, not status)
         experiments = ada_client.experiments.list(limit=50)
         with_results = [
-            e for e in experiments.experiments
+            e for e in experiments.items
             if e.results_status != ResultsStatus.none
         ]
 
@@ -316,7 +318,7 @@ class TestResultsAPIIntegration:
         for exp in with_results:
             try:
                 result = ada_client.experiments.get_results(exp.id, limit=5)
-                assert hasattr(result, "results")
+                assert hasattr(result, "items")
                 return
             except NotFoundError:
                 continue
@@ -346,12 +348,12 @@ class TestSubmissions:
         """Create screening experiment with target_id."""
         # Get first target
         targets = ada_client.targets.list(limit=1)
-        if not targets.targets:
+        if not targets.items:
             pytest.skip("No targets available")
 
         spec = ExperimentSpec(
             experiment_type=ExperimentType.screening,
-            target_id=targets.targets[0].id,
+            target_id=targets.items[0].id,
             sequences={
                 "design_1": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGD",
                 "design_2": "MKVLVAGVLVAVFIGAALVAAFIAVVNFVLKKIRRLFPTPPIQKV",
@@ -368,12 +370,12 @@ class TestSubmissions:
     def test_create_affinity_with_target(self, ada_client: FoundryClient) -> None:
         """Create affinity experiment with target_id."""
         targets = ada_client.targets.list(limit=1)
-        if not targets.targets:
+        if not targets.items:
             pytest.skip("No targets available")
 
         spec = ExperimentSpec(
             experiment_type=ExperimentType.affinity,
-            target_id=targets.targets[0].id,
+            target_id=targets.items[0].id,
             sequences={"ab1": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGD"},
             antigen_concentrations=[1e-9, 1e-8, 1e-7],
             n_replicates=2,
@@ -627,12 +629,12 @@ class TestAllExperimentTypesAutoconfirm:
     def test_screening_with_target_autoconfirm(self, ada_client: FoundryClient) -> None:
         """Screening with real target_id and autoconfirm."""
         targets = ada_client.targets.list(limit=1)
-        if not targets.targets:
+        if not targets.items:
             pytest.skip("No targets available")
 
         spec = ExperimentSpec(
             experiment_type=ExperimentType.screening,
-            target_id=targets.targets[0].id,
+            target_id=targets.items[0].id,
             sequences={
                 "design_1": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGD",
                 "design_2": "MKVLVAGVLVAVFIGAALVAAFIAVVNFVLKKIRRLFPTPPIQKV",
@@ -658,12 +660,12 @@ class TestAllExperimentTypesAutoconfirm:
     def test_affinity_with_target_autoconfirm(self, ada_client: FoundryClient) -> None:
         """Affinity with real target_id and autoconfirm."""
         targets = ada_client.targets.list(limit=1)
-        if not targets.targets:
+        if not targets.items:
             pytest.skip("No targets available")
 
         spec = ExperimentSpec(
             experiment_type=ExperimentType.affinity,
-            target_id=targets.targets[0].id,
+            target_id=targets.items[0].id,
             sequences={"ab1": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGD"},
             antigen_concentrations=[1e-9, 1e-8, 1e-7],
             n_replicates=2,
@@ -701,12 +703,12 @@ class TestPricingCalculator:
     def test_cost_estimate_screening_with_target(self, ada_client: FoundryClient) -> None:
         """Cost estimate for screening with target."""
         targets = ada_client.targets.list(limit=1)
-        if not targets.targets:
+        if not targets.items:
             pytest.skip("No targets available")
 
         spec = ExperimentSpec(
             experiment_type=ExperimentType.screening,
-            target_id=targets.targets[0].id,
+            target_id=targets.items[0].id,
             sequences={"seq1": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGD"},
             n_replicates=2,
         )
@@ -718,12 +720,12 @@ class TestPricingCalculator:
     ) -> None:
         """Cost estimate for affinity with multiple concentrations."""
         targets = ada_client.targets.list(limit=1)
-        if not targets.targets:
+        if not targets.items:
             pytest.skip("No targets available")
 
         spec = ExperimentSpec(
             experiment_type=ExperimentType.affinity,
-            target_id=targets.targets[0].id,
+            target_id=targets.items[0].id,
             sequences={"ab1": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGD"},
             antigen_concentrations=[1e-9, 1e-8, 1e-7, 1e-6, 1e-5],
             n_replicates=3,

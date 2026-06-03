@@ -15,6 +15,15 @@ from adaptyv.exceptions import (
     ValidationError,
 )
 
+# Detail-response models (ExpInfo, SequenceInfo, ResultInfo, TargetInfo, the
+# confirmation/quote responses) carry UUID-typed id fields in the deployed spec,
+# so mock bodies for those endpoints must use real UUID strings. List-envelope
+# item models keep string ids, so list mocks may use opaque ids freely.
+EXP_UUID = "11111111-1111-1111-1111-111111111111"
+SEQ_UUID = "22222222-2222-2222-2222-222222222222"
+RES_UUID = "33333333-3333-3333-3333-333333333333"
+TGT_UUID = "44444444-4444-4444-4444-444444444444"
+
 
 @pytest.fixture
 def client() -> FoundryClient:
@@ -63,7 +72,7 @@ class TestExperimentsAPI:
             return_value=Response(
                 200,
                 json={
-                    "experiments": [
+                    "items": [
                         {
                             "id": "exp-123",
                             "name": "Test Exp",
@@ -75,35 +84,57 @@ class TestExperimentsAPI:
                             "created_at": "2024-01-01T00:00:00Z",
                         }
                     ],
+                    "total": 1,
+                    "count": 1,
+                    "offset": 0,
                 },
             )
         )
 
         result = client.experiments.list(limit=10)
 
-        assert len(result.experiments) == 1
-        assert result.experiments[0].id == "exp-123"
-        assert result.experiments[0].experiment_type.value == "thermostability"
+        assert len(result.items) == 1
+        assert result.items[0].id == "exp-123"
+        assert result.items[0].experiment_type.value == "thermostability"
 
     @respx.mock
     def test_list_experiments_with_filters(self, client: FoundryClient) -> None:
-        """Should pass filter params to API."""
+        """Should pass filter/search params to API."""
         route = respx.get("https://api.test.com/experiments").mock(
-            return_value=Response(200, json={"experiments": []})
+            return_value=Response(200, json={"items": [], "total": 0, "count": 0, "offset": 0})
         )
 
-        client.experiments.list(limit=10, offset=5, status="done", search="test")
+        client.experiments.list(
+            limit=10, offset=5, filter='(= status "done")', search="test"
+        )
 
         assert route.calls[0].request.url.params["limit"] == "10"
         assert route.calls[0].request.url.params["offset"] == "5"
-        assert route.calls[0].request.url.params["status"] == "done"
+        assert route.calls[0].request.url.params["filter"] == '(= status "done")'
         assert route.calls[0].request.url.params["search"] == "test"
 
     @respx.mock
     def test_cost_estimate(self, client: FoundryClient) -> None:
         """Should estimate cost without creating experiment."""
-        route = respx.post("https://api.test.com/experiments/costestimate").mock(
-            return_value=Response(200, json={"estimated_cost": 500, "currency": "usd"})
+        route = respx.post("https://api.test.com/experiments/cost-estimate").mock(
+            return_value=Response(
+                200,
+                json={
+                    "breakdown": {
+                        "assay": {
+                            "experiment_type": "thermostability",
+                            "n_replicates": 2,
+                            "replicate_price_cents": 5000,
+                            "sequence_count": 1,
+                            "subtotal_cents": 25000,
+                            "unit_price_cents": 25000,
+                        },
+                        "pricing_version": "v1",
+                        "total_cents": 25000,
+                    },
+                    "warnings": [],
+                },
+            )
         )
 
         result = client.experiments.cost_estimate(
@@ -114,7 +145,8 @@ class TestExperimentsAPI:
             }
         )
 
-        assert result["estimated_cost"] == 500
+        assert result.breakdown is not None
+        assert result.breakdown.total_cents == 25000
         request_body = route.calls[0].request.content.decode()
         assert "experiment_spec" in request_body
 
@@ -159,11 +191,11 @@ class TestExperimentsAPI:
     @respx.mock
     def test_get_experiment(self, client: FoundryClient) -> None:
         """Should get experiment details."""
-        respx.get("https://api.test.com/experiments/exp-123").mock(
+        respx.get(f"https://api.test.com/experiments/{EXP_UUID}").mock(
             return_value=Response(
                 200,
                 json={
-                    "id": "exp-123",
+                    "id": EXP_UUID,
                     "name": "Test",
                     "code": "EXP-001",
                     "status": "waiting_for_confirmation",
@@ -178,40 +210,42 @@ class TestExperimentsAPI:
             )
         )
 
-        result = client.experiments.get("exp-123")
+        result = client.experiments.get(EXP_UUID)
 
-        assert result.id == "exp-123"
+        assert str(result.id) == EXP_UUID
         assert result.status.value == "waiting_for_confirmation"
         assert result.results_status.value == "none"
 
     @respx.mock
-    def test_confirm_experiment(self, client: FoundryClient) -> None:
-        """Should confirm experiment and return confirmation details."""
-        respx.post("https://api.test.com/experiments/exp-123/confirm").mock(
+    def test_submit_experiment(self, client: FoundryClient) -> None:
+        """Should submit a draft experiment and return confirmation details."""
+        respx.post(f"https://api.test.com/experiments/{EXP_UUID}/submit").mock(
             return_value=Response(
                 200,
                 json={
-                    "experiment_id": "exp-123",
-                    "status": "confirmed",
+                    "experiment_id": EXP_UUID,
+                    "status": "in_production",
+                    "previous_status": "draft",
                     "confirmed_at": "2024-01-01T00:00:00Z",
                 },
             )
         )
 
-        result = client.experiments.confirm("exp-123")
+        result = client.experiments.submit(EXP_UUID)
 
-        assert result.experiment_id == "exp-123"
-        assert result.status == "confirmed"
-        assert result.confirmed_at == "2024-01-01T00:00:00Z"
+        assert str(result.experiment_id) == EXP_UUID
+        assert result.status.value == "in_production"
+        assert result.previous_status.value == "draft"
+        assert result.confirmed_at is not None
 
     @respx.mock
     def test_get_quote(self, client: FoundryClient) -> None:
         """Should get experiment quote details."""
-        respx.get("https://api.test.com/experiments/exp-123/quote").mock(
+        respx.get(f"https://api.test.com/experiments/{EXP_UUID}/quote").mock(
             return_value=Response(
                 200,
                 json={
-                    "experiment_id": "exp-123",
+                    "experiment_id": EXP_UUID,
                     "quote_id": "qt_abc123",
                     "amount_subtotal": 9900,
                     "amount_total": 9900,
@@ -224,13 +258,11 @@ class TestExperimentsAPI:
             )
         )
 
-        result = client.experiments.get_quote("exp-123")
+        result = client.experiments.get_quote(EXP_UUID)
 
-        assert result.experiment_id == "exp-123"
-        assert result.quote_id == "qt_abc123"
+        assert str(result.experiment_id) == EXP_UUID
         assert result.amount_total == 9900
         assert result.currency == "usd"
-        assert result.status == "open"
         assert result.stripe_quote_url == "https://quote.stripe.com/qt_abc123"
 
     @respx.mock
@@ -241,8 +273,7 @@ class TestExperimentsAPI:
                 200,
                 json={
                     "experiment_id": "exp-123",
-                    "invoice_id": "inv_abc123",
-                    "invoice_url": "https://invoice.stripe.com/i/acct_123",
+                    "stripe_invoice_url": "https://invoice.stripe.com/i/acct_123",
                     "status": "open",
                 },
             )
@@ -251,18 +282,17 @@ class TestExperimentsAPI:
         result = client.experiments.get_invoice("exp-123")
 
         assert result.experiment_id == "exp-123"
-        assert result.invoice_id == "inv_abc123"
-        assert result.invoice_url == "https://invoice.stripe.com/i/acct_123"
-        assert result.status == "open"
+        assert result.stripe_invoice_url == "https://invoice.stripe.com/i/acct_123"
+        assert result.status.value == "open"
 
     @respx.mock
     def test_list_updates(self, client: FoundryClient) -> None:
-        """Should list experiment updates."""
+        """Should list experiment updates from the items envelope."""
         respx.get("https://api.test.com/experiments/exp-123/updates").mock(
             return_value=Response(
                 200,
                 json={
-                    "updates": [
+                    "items": [
                         {
                             "id": "upd-001",
                             "experiment_id": "exp-123",
@@ -278,34 +308,36 @@ class TestExperimentsAPI:
                             "timestamp": "2024-01-01T01:00:00Z",
                         },
                     ],
-                    "next_cursor": None,
+                    "total": 2,
+                    "count": 2,
+                    "offset": 0,
                 },
             )
         )
 
         result = client.experiments.list_updates("exp-123")
 
-        assert len(result.updates) == 2
-        assert result.updates[0].id == "upd-001"
-        assert result.updates[0].name == "Experiment created"
-        assert result.next_cursor is None
+        assert len(result.items) == 2
+        assert result.items[0].id == "upd-001"
+        assert result.items[0].name == "Experiment created"
+        assert result.total == 2
 
     @respx.mock
     def test_list_updates_with_pagination(self, client: FoundryClient) -> None:
-        """Should list updates with pagination params."""
-        respx.get("https://api.test.com/experiments/exp-123/updates").mock(
+        """Should send offset pagination params, not a cursor."""
+        route = respx.get("https://api.test.com/experiments/exp-123/updates").mock(
             return_value=Response(
                 200,
-                json={
-                    "updates": [],
-                    "next_cursor": "cursor-123",
-                },
+                json={"items": [], "total": 0, "count": 0, "offset": 10},
             )
         )
 
-        result = client.experiments.list_updates("exp-123", cursor="prev-cursor", limit=10)
+        result = client.experiments.list_updates("exp-123", limit=10, offset=10)
 
-        assert result.next_cursor == "cursor-123"
+        assert result.offset == 10
+        assert route.calls[0].request.url.params["limit"] == "10"
+        assert route.calls[0].request.url.params["offset"] == "10"
+        assert "cursor" not in route.calls[0].request.url.params
 
 
 class TestTargetsAPI:
@@ -314,21 +346,22 @@ class TestTargetsAPI:
     @respx.mock
     def test_get_target(self, client: FoundryClient) -> None:
         """Should get target by ID."""
-        respx.get("https://api.test.com/targets/target-123").mock(
+        respx.get(f"https://api.test.com/targets/{TGT_UUID}").mock(
             return_value=Response(
                 200,
                 json={
-                    "id": "target-123",
+                    "id": TGT_UUID,
                     "name": "PD-L1",
                     "vendor_name": "ACROBiosystems",
                     "catalog_number": "PD1-H5220",
+                    "url": "https://catalog.example.com/pdl1",
                 },
             )
         )
 
-        result = client.targets.get("target-123")
+        result = client.targets.get(TGT_UUID)
 
-        assert result.id == "target-123"
+        assert str(result.id) == TGT_UUID
         assert result.name == "PD-L1"
 
     @respx.mock
@@ -338,12 +371,13 @@ class TestTargetsAPI:
             return_value=Response(
                 200,
                 json={
-                    "targets": [
+                    "items": [
                         {
                             "id": "target-1",
                             "name": "PD-L1",
                             "vendor_name": "ACROBiosystems",
                             "catalog_number": "PD1-H5220",
+                            "url": "https://catalog.example.com/pdl1",
                         }
                     ],
                     "total": 100,
@@ -355,8 +389,8 @@ class TestTargetsAPI:
 
         result = client.targets.list()
 
-        assert len(result.targets) == 1
-        assert result.targets[0].name == "PD-L1"
+        assert len(result.items) == 1
+        assert result.items[0].name == "PD-L1"
         assert result.total == 100
 
     @respx.mock
@@ -366,7 +400,7 @@ class TestTargetsAPI:
             return_value=Response(
                 200,
                 json={
-                    "targets": [],
+                    "items": [],
                     "total": 0,
                     "count": 0,
                     "offset": 0,
@@ -385,7 +419,7 @@ class TestTargetsAPI:
             return_value=Response(
                 200,
                 json={
-                    "targets": [],
+                    "items": [],
                     "total": 0,
                     "count": 0,
                     "offset": 0,
@@ -404,12 +438,12 @@ class TestUpdatesAPI:
 
     @respx.mock
     def test_list_updates(self, client: FoundryClient) -> None:
-        """Should list global updates."""
+        """Should list global updates from the items envelope."""
         respx.get("https://api.test.com/updates").mock(
             return_value=Response(
                 200,
                 json={
-                    "updates": [
+                    "items": [
                         {
                             "id": "upd-001",
                             "experiment_id": "exp-123",
@@ -418,29 +452,34 @@ class TestUpdatesAPI:
                             "timestamp": "2024-01-01T00:00:00Z",
                         }
                     ],
-                    "next_cursor": "cursor-abc",
+                    "total": 1,
+                    "count": 1,
+                    "offset": 0,
                 },
             )
         )
 
         result = client.updates.list(limit=10)
 
-        assert len(result.updates) == 1
-        assert result.updates[0].id == "upd-001"
-        assert result.next_cursor == "cursor-abc"
+        assert len(result.items) == 1
+        assert result.items[0].id == "upd-001"
+        assert result.total == 1
 
     @respx.mock
     def test_list_updates_with_filters(self, client: FoundryClient) -> None:
-        """Should pass filter params to API."""
+        """Should pass filter and offset params (no cursor/experiment_id) to API."""
         route = respx.get("https://api.test.com/updates").mock(
-            return_value=Response(200, json={"updates": [], "next_cursor": None})
+            return_value=Response(200, json={"items": [], "total": 0, "count": 0, "offset": 0})
         )
 
-        client.updates.list(experiment_id="exp-123", cursor="cur-1", limit=20)
+        client.updates.list(filter='(= experiment_id "exp-123")', limit=20, offset=5)
 
-        assert route.calls[0].request.url.params["experiment_id"] == "exp-123"
-        assert route.calls[0].request.url.params["cursor"] == "cur-1"
-        assert route.calls[0].request.url.params["limit"] == "20"
+        params = route.calls[0].request.url.params
+        assert params["filter"] == '(= experiment_id "exp-123")'
+        assert params["limit"] == "20"
+        assert params["offset"] == "5"
+        assert "cursor" not in params
+        assert "experiment_id" not in params
 
 
 class TestErrorHandling:
@@ -570,13 +609,13 @@ class TestRetryLogic:
         )
 
         # First request fails, second succeeds
-        route = respx.get("https://api.test.com/experiments/123")
+        route = respx.get(f"https://api.test.com/experiments/{EXP_UUID}")
         route.side_effect = [
             Response(500, json={"error": "Internal error"}),
             Response(
                 200,
                 json={
-                    "id": "123",
+                    "id": EXP_UUID,
                     "name": "Test",
                     "code": "EXP-001",
                     "status": "waiting_for_confirmation",
@@ -588,8 +627,8 @@ class TestRetryLogic:
             ),
         ]
 
-        result = client.experiments.get("123")
-        assert result.id == "123"
+        result = client.experiments.get(EXP_UUID)
+        assert str(result.id) == EXP_UUID
         assert route.call_count == 2
 
     @respx.mock
@@ -680,11 +719,11 @@ class TestSequencesAPI:
             return_value=Response(
                 200,
                 json={
-                    "sequences": [
+                    "items": [
                         {
                             "id": "seq-001",
                             "name": "Design A",
-                            "fasta_preview": "MVKVGVNG",
+                            "aa_preview": "MVKVGVNG",
                             "length": 8,
                             "is_control": False,
                             "experiment_id": "exp-123",
@@ -694,7 +733,7 @@ class TestSequencesAPI:
                         {
                             "id": "seq-002",
                             "name": "Control",
-                            "fasta_preview": "MVKVGVNGAA",
+                            "aa_preview": "MVKVGVNGAA",
                             "length": 10,
                             "is_control": True,
                             "experiment_id": "exp-123",
@@ -711,10 +750,10 @@ class TestSequencesAPI:
 
         result = client.sequences.list()
 
-        assert len(result.sequences) == 2
-        assert result.sequences[0].id == "seq-001"
-        assert result.sequences[0].name == "Design A"
-        assert result.sequences[1].is_control is True
+        assert len(result.items) == 2
+        assert result.items[0].id == "seq-001"
+        assert result.items[0].name == "Design A"
+        assert result.items[1].is_control is True
         assert result.total == 2
 
     @respx.mock
@@ -724,7 +763,7 @@ class TestSequencesAPI:
             return_value=Response(
                 200,
                 json={
-                    "sequences": [],
+                    "items": [],
                     "total": 0,
                     "count": 0,
                     "offset": 0,
@@ -743,17 +782,17 @@ class TestSequencesAPI:
     @respx.mock
     def test_get_sequence(self, client: FoundryClient) -> None:
         """Should get sequence details."""
-        respx.get("https://api.test.com/sequences/seq-001").mock(
+        respx.get(f"https://api.test.com/sequences/{SEQ_UUID}").mock(
             return_value=Response(
                 200,
                 json={
-                    "id": "seq-001",
+                    "id": SEQ_UUID,
                     "aa_string": "MVKVGVNG",
                     "length": 8,
                     "name": "Design A",
                     "is_control": False,
                     "experiment": {
-                        "experiment_id": "exp-123",
+                        "experiment_id": EXP_UUID,
                         "experiment_code": "EXP-2024-001",
                         "experiment_status": "in_production",
                     },
@@ -763,12 +802,12 @@ class TestSequencesAPI:
             )
         )
 
-        result = client.sequences.get("seq-001")
+        result = client.sequences.get(SEQ_UUID)
 
-        assert result.id == "seq-001"
+        assert str(result.id) == SEQ_UUID
         assert result.aa_string == "MVKVGVNG"
         assert result.length == 8
-        assert result.experiment.experiment_id == "exp-123"
+        assert str(result.experiment.experiment_id) == EXP_UUID
         assert result.experiment.experiment_status == "in_production"
         assert result.metadata is not None
 
@@ -780,9 +819,9 @@ class TestSequencesAPI:
                 200,
                 json={
                     "added_count": 2,
-                    "experiment_id": "exp-123",
+                    "experiment_id": EXP_UUID,
                     "experiment_code": "EXP-2024-001",
-                    "sequence_ids": ["seq-001", "seq-002"],
+                    "sequence_ids": [SEQ_UUID, "22222222-2222-2222-2222-222222222223"],
                 },
             )
         )
@@ -796,7 +835,7 @@ class TestSequencesAPI:
         )
 
         assert result.added_count == 2
-        assert result.experiment_id == "exp-123"
+        assert str(result.experiment_id) == EXP_UUID
         assert len(result.sequence_ids) == 2
 
 
@@ -810,12 +849,14 @@ class TestResultsAPI:
             return_value=Response(
                 200,
                 json={
-                    "results": [
+                    "items": [
                         {
                             "id": "res-001",
                             "title": "Affinity Results Batch 1",
                             "experiment_id": "exp-123",
                             "result_type": "affinity",
+                            "metadata": {},
+                            "summary": [],
                             "created_at": "2024-01-15T00:00:00Z",
                         },
                         {
@@ -823,6 +864,8 @@ class TestResultsAPI:
                             "title": "Thermostability Results",
                             "experiment_id": "exp-124",
                             "result_type": "thermostability",
+                            "metadata": {},
+                            "summary": [],
                             "created_at": "2024-01-16T00:00:00Z",
                         },
                     ],
@@ -835,10 +878,10 @@ class TestResultsAPI:
 
         result = client.results.list()
 
-        assert len(result.results) == 2
-        assert result.results[0].id == "res-001"
-        assert result.results[0].result_type == "affinity"
-        assert result.results[1].result_type == "thermostability"
+        assert len(result.items) == 2
+        assert result.items[0].id == "res-001"
+        assert result.items[0].result_type == "affinity"
+        assert result.items[1].result_type == "thermostability"
         assert result.total == 2
 
     @respx.mock
@@ -848,7 +891,7 @@ class TestResultsAPI:
             return_value=Response(
                 200,
                 json={
-                    "results": [],
+                    "items": [],
                     "total": 0,
                     "count": 0,
                     "offset": 0,
@@ -856,35 +899,31 @@ class TestResultsAPI:
             )
         )
 
-        client.results.list(experiment_id="exp-123", limit=10, offset=5)
+        client.results.list(filter='(= experiment_id "exp-123")', limit=10, offset=5)
 
-        assert route.calls[0].request.url.params["experiment_id"] == "exp-123"
+        assert route.calls[0].request.url.params["filter"] == '(= experiment_id "exp-123")'
         assert route.calls[0].request.url.params["limit"] == "10"
         assert route.calls[0].request.url.params["offset"] == "5"
 
     @respx.mock
     def test_get_result(self, client: FoundryClient) -> None:
         """Should get result details including kinetic parameters."""
-        respx.get("https://api.test.com/results/res-001").mock(
+        respx.get(f"https://api.test.com/results/{RES_UUID}").mock(
             return_value=Response(
                 200,
                 json={
-                    "id": "res-001",
-                    "title": "Affinity Results Batch 1",
-                    "experiment_id": "exp-123",
-                    "result_type": "affinity",
+                    "id": RES_UUID,
+                    "title": "Thermostability Results Batch 1",
+                    "experiment_id": EXP_UUID,
+                    "result_type": "thermostability",
                     "created_at": "2024-01-15T00:00:00Z",
                     "summary": [
                         {
-                            "sequence_id": "seq-001",
+                            "sequence_id": SEQ_UUID,
                             "sequence_name": "Design A",
-                            "target_id": "tgt-001",
-                            "n_replicates": 3,
-                            "kd": [1.2, 1.3, 1.1],
-                            "kd_units": "nM",
-                            "kon": 1.5e5,
-                            "koff": 1.8e-4,
-                            "binding_strength": "strong",
+                            "result_type": "thermostability",
+                            "tm": 65.4,
+                            "t_onset": 58.0,
                         }
                     ],
                     "data_package_url": "https://storage.example.com/data.zip",
@@ -893,15 +932,13 @@ class TestResultsAPI:
             )
         )
 
-        result = client.results.get("res-001")
+        result = client.results.get(RES_UUID)
 
-        assert result.id == "res-001"
-        assert result.title == "Affinity Results Batch 1"
-        assert result.result_type == "affinity"
+        assert str(result.id) == RES_UUID
+        assert result.title == "Thermostability Results Batch 1"
         assert result.data_package_url == "https://storage.example.com/data.zip"
         assert len(result.summary) == 1
-        assert result.summary[0]["kd"] == [1.2, 1.3, 1.1]
-        assert result.summary[0]["binding_strength"] == "strong"
+        assert result.summary[0].root.tm == 65.4
 
 
 class TestAutoconfirmPayload:
@@ -949,23 +986,27 @@ class TestAutoconfirmPayload:
         assert "skip_draft" not in request_body
 
 
-class TestUpdatePriority:
-    """Test update_priority endpoint."""
+class TestModify:
+    """Test modify endpoint (PATCH /experiments/{id})."""
 
     @respx.mock
-    def test_update_priority(self, client: FoundryClient) -> None:
-        """Should update experiment priority."""
+    def test_modify_patches_experiment(self, client: FoundryClient) -> None:
+        """Should PATCH the experiment and send only the provided fields."""
         import json
 
-        route = respx.post("https://api.test.com/experiments/exp-123/update-priority").mock(
-            return_value=Response(200, json={"success": True})
+        route = respx.patch("https://api.test.com/experiments/exp-123").mock(
+            return_value=Response(
+                200,
+                json={"id": "exp-123", "updated": True, "message": "ok"},
+            )
         )
 
-        result = client.experiments.update_priority("exp-123", priority=5)
+        result = client.experiments.modify("exp-123", name="Renamed Experiment")
 
-        assert result == {"success": True}
-        request_body = route.calls[0].request.content.decode()
-        assert json.loads(request_body) == {"priority": 5}
+        assert result.id == "exp-123"
+        assert result.updated is True
+        request_body = json.loads(route.calls[0].request.content.decode())
+        assert request_body == {"name": "Renamed Experiment"}
 
 
 class TestExperimentsGetResults:
@@ -978,12 +1019,14 @@ class TestExperimentsGetResults:
             return_value=Response(
                 200,
                 json={
-                    "results": [
+                    "items": [
                         {
                             "id": "res-001",
                             "title": "Affinity Results",
                             "experiment_id": "exp-123",
                             "result_type": "affinity",
+                            "metadata": {},
+                            "summary": [],
                             "created_at": "2024-01-15T00:00:00Z",
                         }
                     ],
@@ -996,8 +1039,8 @@ class TestExperimentsGetResults:
 
         result = client.experiments.get_results("exp-123")
 
-        assert len(result.results) == 1
-        assert result.results[0].experiment_id == "exp-123"
+        assert len(result.items) == 1
+        assert result.items[0].experiment_id == "exp-123"
 
     @respx.mock
     def test_get_experiment_results_with_pagination(self, client: FoundryClient) -> None:
@@ -1006,7 +1049,7 @@ class TestExperimentsGetResults:
             return_value=Response(
                 200,
                 json={
-                    "results": [],
+                    "items": [],
                     "total": 0,
                     "count": 0,
                     "offset": 0,

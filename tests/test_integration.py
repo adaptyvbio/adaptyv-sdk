@@ -13,7 +13,12 @@ load_dotenv()
 
 from adaptyv import FoundryClient, Lab  # noqa: E402
 from adaptyv.client.foundry import get_client  # noqa: E402
-from adaptyv.exceptions import APIError, AuthenticationError, NotFoundError, ValidationError  # noqa: E402
+from adaptyv.exceptions import (  # noqa: E402
+    APIError,
+    AuthenticationError,
+    NotFoundError,
+    ValidationError,
+)
 from adaptyv.types.generated import ExperimentSpec, ExperimentType  # noqa: E402
 
 pytestmark = pytest.mark.skipif(
@@ -47,7 +52,7 @@ def get_with_retry(
     for attempt in range(max_attempts):
         try:
             return client.experiments.get(experiment_id)
-        except (NotFoundError, APIError) as e:
+        except (NotFoundError, APIError):
             if attempt == max_attempts - 1:
                 raise
             time.sleep(delay)
@@ -95,7 +100,7 @@ def sample_spec(client: FoundryClient) -> ExperimentSpec:
     targets = client.targets.list(limit=1, offset=0)
     return ExperimentSpec(
         experiment_type=ExperimentType.thermostability,
-        target_id=targets.targets[0].id,
+        target_id=targets.items[0].id,
         sequences={"test_seq": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGD"},
         n_replicates=2,
     )
@@ -105,18 +110,18 @@ class TestTargetsAPI:
     def test_list_targets(self, client: FoundryClient) -> None:
         result = client.targets.list(limit=10, offset=0)
         assert result.total > 0
-        assert len(result.targets) > 0
-        assert result.targets[0].id is not None
+        assert len(result.items) > 0
+        assert result.items[0].id is not None
 
     def test_list_targets_pagination(self, client: FoundryClient) -> None:
         first = client.targets.list(limit=10, offset=0)
         if first.total > 10:
             second = client.targets.list(limit=10, offset=10)
-            assert len(second.targets) > 0
+            assert len(second.items) > 0
 
     def test_get_target(self, client: FoundryClient) -> None:
         targets = client.targets.list(limit=1, offset=0)
-        target_id = targets.targets[0].id
+        target_id = targets.items[0].id
         result = client.targets.get(target_id)
         assert result.id == target_id
         assert result.name is not None
@@ -126,7 +131,7 @@ class TestTargetsAPI:
 
     def test_search_targets_nonexistent(self, client: FoundryClient) -> None:
         result = client.targets.search("ZZZNONEXISTENT999", limit=10)
-        assert len(result.targets) == 0
+        assert len(result.items) == 0
 
     def test_get_target_not_found(self, client: FoundryClient) -> None:
         with pytest.raises((NotFoundError, APIError)) as exc_info:
@@ -137,7 +142,7 @@ class TestTargetsAPI:
 class TestExperimentsAPI:
     def test_list_experiments(self, client: FoundryClient) -> None:
         result = client.experiments.list()
-        assert hasattr(result, "experiments")
+        assert hasattr(result, "items")
 
     @pytest.mark.slow
     def test_create_and_verify_experiment(self, client: FoundryClient, sample_spec: ExperimentSpec) -> None:
@@ -163,7 +168,7 @@ class TestExperimentsAPI:
         targets = client.targets.list(limit=1, offset=0)
         spec = ExperimentSpec(
             experiment_type=ExperimentType.screening,
-            target_id=targets.targets[0].id,
+            target_id=targets.items[0].id,
             sequences={
                 "design_1": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGD",
                 "design_2": "MKVLVAGVLVAVFIGAALVAAFIAVVNFVLKKIRRLFPTPPIQKV",
@@ -185,7 +190,7 @@ class TestExperimentsAPI:
         wait_for_experiment(client, created.experiment_id)
 
         updates = client.experiments.list_updates(created.experiment_id, limit=10)
-        assert hasattr(updates, "updates")
+        assert hasattr(updates, "items")
         # New experiment should have at least one update (creation)
 
     @pytest.mark.slow
@@ -208,7 +213,7 @@ class TestMiscAPI:
         targets = client.targets.list(limit=1, offset=0)
         spec = ExperimentSpec(
             experiment_type=ExperimentType.screening,
-            target_id=targets.targets[0].id,
+            target_id=targets.items[0].id,
             sequences={"seq1": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGD"},
             n_replicates=2,
         )
@@ -236,7 +241,7 @@ class TestMiscAPI:
     def test_list_global_updates(self, client: FoundryClient) -> None:
         try:
             result = client.updates.list(limit=10)
-            assert hasattr(result, "updates")
+            assert hasattr(result, "items")
         except APIError as e:
             if e.status_code == 403:
                 pytest.skip("API key lacks updates permission")
