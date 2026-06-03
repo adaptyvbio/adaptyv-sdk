@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reviewer guide — SDK ↔ Foundry API alignment</title>
+<style>
+@charset "UTF-8";
+
+/* Import ET Book styles
+   adapted from https://github.com/edwardtufte/et-book/blob/gh-pages/et-book.css */
+
+/* Tufte CSS styles */
+html {
+    font-size: 15px;
+}
+
+body {
+    width: 87.5%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 12.5%;
+    font-family: et-book, Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif;
+    background-color: #fffff8;
+    color: #111;
+    max-width: 1400px;
+    counter-reset: sidenote-counter;
+}
+
+/* Adds dark mode */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #151515;
+        color: #ddd;
+    }
+}
+
+h1 {
+    font-weight: 400;
+    margin-top: 4rem;
+    margin-bottom: 1.5rem;
+    font-size: 3.2rem;
+    line-height: 1;
+}
+
+h2 {
+    font-style: italic;
+    font-weight: 400;
+    margin-top: 2.1rem;
+    margin-bottom: 1.4rem;
+    font-size: 2.2rem;
+    line-height: 1;
+}
+
+h3 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.7rem;
+    margin-top: 2rem;
+    margin-bottom: 1.4rem;
+    line-height: 1;
+}
+
+hr {
+    display: block;
+    height: 1px;
+    width: 55%;
+    border: 0;
+    border-top: 1px solid #ccc;
+    margin: 1em 0;
+    padding: 0;
+}
+
+p.subtitle {
+    font-style: italic;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    font-size: 1.8rem;
+    display: block;
+    line-height: 1;
+}
+
+.numeral {
+    font-family: et-book-roman-old-style;
+}
+
+.danger {
+    color: red;
+}
+
+article {
+    padding: 5rem 0rem;
+}
+
+section {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+p,
+dl,
+ol,
+ul {
+    font-size: 1.4rem;
+    line-height: 2rem;
+}
+
+p {
+    margin-top: 1.4rem;
+    margin-bottom: 1.4rem;
+    padding-right: 0;
+    vertical-align: baseline;
+}
+
+/* Chapter Epigraphs */
+div.epigraph {
+    margin: 5em 0;
+}
+
+div.epigraph > blockquote {
+    margin-top: 3em;
+    margin-bottom: 3em;
+}
+
+div.epigraph > blockquote,
+div.epigraph > blockquote > p {
+    font-style: italic;
+}
+
+div.epigraph > blockquote > footer {
+    font-style: normal;
+}
+
+div.epigraph > blockquote > footer > cite {
+    font-style: italic;
+}
+/* end chapter epigraphs styles */
+
+blockquote {
+    font-size: 1.4rem;
+}
+
+blockquote p {
+    width: 55%;
+    margin-right: 40px;
+}
+
+blockquote footer {
+    width: 55%;
+    font-size: 1.1rem;
+    text-align: right;
+}
+
+section > p,
+section > footer,
+section > table {
+    width: 55%;
+}
+
+/* 50 + 5 == 55, to be the same width as paragraph */
+section > dl,
+section > ol,
+section > ul {
+    width: 50%;
+    -webkit-padding-start: 5%;
+}
+
+dt:not(:first-child),
+li:not(:first-child) {
+    margin-top: 0.25rem;
+}
+
+figure {
+    padding: 0;
+    border: 0;
+    font-size: 100%;
+    font: inherit;
+    vertical-align: baseline;
+    max-width: 55%;
+    -webkit-margin-start: 0;
+    -webkit-margin-end: 0;
+    margin: 0 0 3em 0;
+}
+
+figcaption {
+    float: right;
+    clear: right;
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    vertical-align: baseline;
+    position: relative;
+    max-width: 40%;
+}
+
+figure.fullwidth figcaption {
+    margin-right: 24%;
+}
+
+a:link,
+a:visited {
+    color: inherit;
+    text-underline-offset: 0.1em;
+    text-decoration-thickness: 0.05em;
+}
+
+/* Sidenotes, margin notes, figures, captions */
+img {
+    max-width: 100%;
+}
+
+.sidenote,
+.marginnote {
+    float: right;
+    clear: right;
+    margin-right: -60%;
+    width: 50%;
+    margin-top: 0.3rem;
+    margin-bottom: 0;
+    font-size: 1.1rem;
+    line-height: 1.3;
+    vertical-align: baseline;
+    position: relative;
+}
+
+.sidenote-number {
+    counter-increment: sidenote-counter;
+}
+
+.sidenote-number:after,
+.sidenote:before {
+    font-family: et-book-roman-old-style;
+    position: relative;
+    vertical-align: baseline;
+}
+
+.sidenote-number:after {
+    content: counter(sidenote-counter);
+    font-size: 1rem;
+    top: -0.5rem;
+    left: 0.1rem;
+}
+
+.sidenote:before {
+    content: counter(sidenote-counter) " ";
+    font-size: 1rem;
+    top: -0.5rem;
+}
+
+blockquote .sidenote,
+blockquote .marginnote {
+    margin-right: -82%;
+    min-width: 59%;
+    text-align: left;
+}
+
+div.fullwidth,
+table.fullwidth {
+    width: 100%;
+}
+
+div.table-wrapper {
+    overflow-x: auto;
+    font-family: "Trebuchet MS", "Gill Sans", "Gill Sans MT", sans-serif;
+}
+
+.sans {
+    font-family: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
+    letter-spacing: .03em;
+}
+
+code, pre > code {
+    font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    font-size: 1.0rem;
+    line-height: 1.42;
+    -webkit-text-size-adjust: 100%; /* Prevent adjustments of font size after orientation changes in iOS. See https://github.com/edwardtufte/tufte-css/issues/81#issuecomment-261953409 */
+}
+
+.sans > code {
+    font-size: 1.2rem;
+}
+
+h1 > code,
+h2 > code,
+h3 > code {
+    font-size: 0.80em;
+}
+
+.marginnote > code,
+.sidenote > code {
+    font-size: 1rem;
+}
+
+pre > code {
+    font-size: 0.9rem;
+    width: 52.5%;
+    margin-left: 2.5%;
+    overflow-x: auto;
+    display: block;
+}
+
+pre.fullwidth > code {
+    width: 90%;
+}
+
+.fullwidth {
+    max-width: 90%;
+    clear:both;
+}
+
+span.newthought {
+    font-variant: small-caps;
+    font-size: 1.2em;
+}
+
+input.margin-toggle {
+    display: none;
+}
+
+label.sidenote-number {
+    display: inline-block;
+    max-height: 2rem; /* should be less than or equal to paragraph line-height */
+}
+
+label.margin-toggle:not(.sidenote-number) {
+    display: none;
+}
+
+.iframe-wrapper {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 */
+    padding-top: 25px;
+    height: 0;
+}
+
+.iframe-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+@media (max-width: 760px) {
+    body {
+        width: 84%;
+        padding-left: 8%;
+        padding-right: 8%;
+    }
+
+    hr,
+    section > p,
+    section > footer,
+    section > table {
+        width: 100%;
+    }
+
+    pre > code {
+        width: 97%;
+    }
+
+    section > dl,
+    section > ol,
+    section > ul {
+        width: 90%;
+    }
+
+    figure {
+        max-width: 90%;
+    }
+
+    figcaption,
+    figure.fullwidth figcaption {
+        margin-right: 0%;
+        max-width: none;
+    }
+
+    blockquote {
+        margin-left: 1.5em;
+        margin-right: 0em;
+    }
+
+    blockquote p,
+    blockquote footer {
+        width: 100%;
+    }
+
+    label.margin-toggle:not(.sidenote-number) {
+        display: inline;
+    }
+
+    .sidenote,
+    .marginnote {
+        display: none;
+    }
+
+    .margin-toggle:checked + .sidenote,
+    .margin-toggle:checked + .marginnote {
+        display: block;
+        float: left;
+        left: 1rem;
+        clear: both;
+        width: 95%;
+        margin: 1rem 2.5%;
+        vertical-align: baseline;
+        position: relative;
+    }
+
+    label {
+        cursor: pointer;
+    }
+
+    div.table-wrapper,
+    table {
+        width: 85%;
+    }
+
+    img {
+        width: 100%;
+    }
+}
+
+/* md-tufte additions layered on top of vendored tufte.css */
+
+/* Floating fixed table of contents */
+#md-toc {
+  position: fixed;
+  top: 3rem;
+  left: 1rem;
+  width: 12rem;
+  max-height: 80vh;
+  overflow-y: auto;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+#md-toc ul { list-style: none; padding-left: 0.6rem; margin: 0; }
+#md-toc a { text-decoration: none; color: #555; }
+#md-toc a.active { color: #111; font-weight: bold; }
+@media (max-width: 1400px) { #md-toc { display: none; } }
+
+/* Per-page header navigation */
+#md-nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: #fffff8;
+  border-bottom: 1px solid #ddd;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  z-index: 10;
+}
+#md-nav a { margin-right: 1rem; text-decoration: none; color: #555; }
+#md-nav a.current { color: #111; font-weight: bold; }
+body { padding-top: 2.5rem; }
+
+/* Allow block children inside sidenote/marginnote spans to render cleanly */
+span.sidenote p, span.marginnote p { display: inline; margin: 0; }
+
+/* Dark mode: mirror tufte.css prefers-color-scheme handling for nav/toc */
+@media (prefers-color-scheme: dark) {
+  #md-nav { background: #151515; border-bottom-color: #333; }
+  #md-nav a { color: #aaa; }
+  #md-nav a.current { color: #eee; }
+  #md-toc a { color: #aaa; }
+  #md-toc a.active { color: #eee; }
+}
+
+#md-toc { width: 11rem; }
+article { padding: 2rem 0 5rem; }
+.lead { font-size:1.5rem; line-height:2.1rem; }
+.muted { color:#888; }
+code { background:rgba(0,0,0,0.045); padding:0 0.2em; border-radius:0.15em; }
+@media (prefers-color-scheme: dark) { code { background:rgba(255,255,255,0.08); } }
+.commit, .decision { border-left:3px solid #2d6a4f; padding:0.2rem 0 0.2rem 1rem; margin:1.4rem 0; max-width:50rem; }
+.decision { border-color:#33485e; }
+.commit h3, .decision h3 { font-style:normal; font-size:1.45rem; margin:0.3rem 0 0.5rem; }
+.ctype { font-family:"Gill Sans",sans-serif; font-size:0.8rem; background:#2d6a4f; color:#fff; padding:0.05rem 0.45rem; border-radius:0.2rem; text-transform:uppercase; letter-spacing:.03em; }
+.csha { float:right; color:#bbb; text-decoration:none; }
+.stance { font-style:italic; color:#666; font-size:1.1rem; }
+.lbl { font-variant:small-caps; color:#666; margin-right:0.4rem; }
+.links { font-size:1.05rem; color:#777; }
+pre.cmd { background:rgba(0,0,0,0.05); padding:0.8rem 1rem; border-radius:0.3rem; width:52%; overflow-x:auto; }
+@media (prefers-color-scheme: dark) { pre.cmd { background:rgba(255,255,255,0.07); } }
+table.fix { font-family:"Gill Sans",sans-serif; font-size:0.95rem; border-collapse:collapse; width:100%; max-width:55rem; }
+table.fix td { padding:0.25rem 0.6rem; border-bottom:1px solid #eee; vertical-align:top; }
+.ok { color:#2d6a4f; font-weight:bold; }
+section { scroll-margin-top:3rem; }
+</style></head>
+<body>
+<nav id="md-toc"><strong>Contents</strong><ul>
+<li><a href="#bluf">For the reviewer</a></li>
+<li><a href="#why">Why this change</a></li>
+<li><a href="#how">How to review</a></li>
+<li><a href="#commits">Commit walkthrough</a></li>
+<li><a href="#decisions">Key decisions</a></li>
+<li><a href="#fixmap">Findings → fixes</a></li>
+<li><a href="#breaking">Breaking changes</a></li>
+<li><a href="#verify">Verification</a></li>
+<li><a href="#open">Open questions</a></li>
+</ul></nav>
+<article>
+
+<h1>Reviewer guide</h1>
+<p class="subtitle">Aligning <code>adaptyv-sdk</code> with the deployed Foundry API (<code>info.version 0.0.2</code>)</p>
+<p class="muted">2026-06-03 · branch <a href="https://github.com/adaptyvbio/adaptyv-sdk/tree/igork/sdk-spec-fix_18b5ab191a5a4581"><code>igork/sdk-spec-fix_18b5ab191a5a4581</code></a> → <code>main</code> · 6 commits · <a href="https://github.com/adaptyvbio/adaptyv-sdk/compare/main...igork/sdk-spec-fix_18b5ab191a5a4581">full diff</a> · <a href="../sdk-spec-alignment/index.html">divergence report</a></p>
+
+<section id="bluf">
+<h2>For the reviewer</h2>
+<p class="lead">This branch realigns the SDK with the live API and repairs the codegen pipeline that let it drift. The work began from a verified <a href="../sdk-spec-alignment/index.html">divergence report</a> of <strong>73 findings</strong> (17 breaking real calls). Every finding traces to one root cause: the committed <code>generated.py</code> was built from a codegen URL that now <strong>404s</strong> because the spec moved under <code>/api/v1</code>.</p>
+<p>The change is six focused commits, each independently coherent, and the gate (<code>mise&nbsp;run&nbsp;check</code>) is green. To act on this branch, weigh the four <a href="#decisions">key decisions</a> and the <a href="#breaking">breaking changes</a>, then answer the four <a href="#open">open questions</a> — the calls I could not settle alone. Approve if those decisions stand and the breaks are acceptable downstream.</p>
+</section>
+
+<section id="why">
+<h2>Why this change</h2>
+<p>The deployed spec (<a href="https://foundry-api-public.adaptyvbio.com/api/v1/openapi.json">live</a>, 30 paths, 71 schemas) had moved ahead of the SDK in 73 verified places. The headline breaks: a request to <code>/experiments/costestimate</code> (the real path is <code>cost-estimate</code>); <code>confirm()</code> posting to a nonexistent <code>/confirm</code>; list models that could not parse the live <code>items</code> envelope; and two enums that rejected values the API returns. Whole resources — quotes, tokens, feedback, custom targets, health — had no SDK surface at all. The <a href="../sdk-spec-alignment/index.html">divergence report</a> holds the full per-finding analysis with adversarial verification.</p>
+</section>
+
+<section id="how">
+<h2>How to review</h2>
+<p>Check the branch out and run the gate; optionally regenerate the types to confirm the codegen pipeline now reproduces the committed file.</p>
+<pre class="cmd">git fetch origin igork/sdk-spec-fix_18b5ab191a5a4581
+git checkout igork/sdk-spec-fix_18b5ab191a5a4581
+mise run gen:types   # optional — confirms codegen reproduces generated.py
+mise run check       # ruff + mypy (strict) + fast tests</pre>
+<p>Read the commits in order, since each builds on the prior contract. Focus on <a href="https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py">the client</a> and the <a href="https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/types/lists.py">hand-maintained pagination layer</a> — the regenerated <code>generated.py</code> is machine-produced and excluded from mypy.</p>
+</section>
+
+<section id="commits">
+<h2>Commit walkthrough</h2>
+<div class="commit">
+  <h3 id="c-86d9866"><span class="ctype">build</span> repair codegen + dev-tool tasks and tighten typing <a class="csha" href="https://github.com/adaptyvbio/adaptyv-sdk/commit/86d986672865472912a11f221c333435b0ac126e"><code>86d9866</code></a></h3>
+  <p>The root cause of the drift: <code>gen:types</code> pointed at <code>…/openapi.json</code>, which now 404s. Repoint it to the live <a href='https://foundry-api-public.adaptyvbio.com/api/v1/openapi.json'><code>/api/v1/openapi.json</code></a>, run it via <code>uv&nbsp;run</code>, and add <code>datamodel-code-generator</code> as a dev dependency (it supplies the <code>datamodel-codegen</code> entrypoint, which was not installed anywhere). Map the <code>uuid</code>/<code>date-time</code> string formats to <code>str</code>, enable the pydantic mypy plugin, and route every dev-tool mise task through <code>uv&nbsp;run</code> so <code>mise&nbsp;run&nbsp;check</code> works.</p>
+  <p class="links"><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/mise.toml'>mise.toml — gen:types</a> · <a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/pyproject.toml'>pyproject — mypy plugin + per-file-ignores</a></p>
+</div><div class="commit">
+  <h3 id="c-8bff8d6"><span class="ctype">feat(types)</span> regenerate models from deployed spec; add pagination layer <a class="csha" href="https://github.com/adaptyvbio/adaptyv-sdk/commit/8bff8d6672ebbc1d39aaf014d9ef0a68aedf7918"><code>8bff8d6</code></a></h3>
+  <p>Regenerate <code>generated.py</code> from the live spec, picking up every previously-missing model and the corrected enums. The spec returns list responses as <em>anonymous</em> inline objects that codegen cannot name, so add a hand-maintained pagination layer: a generic <code>Paginated[T]</code> envelope plus one item model per list endpoint. Record the targeted contract version.</p>
+  <p class="links"><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/types/lists.py#L32'>types/lists.py — Paginated[T]</a> · <a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/types/lists.py#L169'>list aliases</a> · <a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/config.py'>FOUNDRY_SPEC_VERSION</a></p>
+</div><div class="commit">
+  <h3 id="c-a0b6b1c"><span class="ctype">fix(client)</span> align client with deployed Foundry API v0.0.2 <a class="csha" href="https://github.com/adaptyvbio/adaptyv-sdk/commit/a0b6b1c187f2f3a1ff01ccde957ea1430ac83b75"><code>a0b6b1c</code></a></h3>
+  <p>The behavioural core. Correct the wrong paths, split the dead <code>/confirm</code> call into <code>submit()</code> and <code>confirm_quote()</code>, replace <code>update_priority()</code> with <code>modify()</code> (<code>PATCH</code>), switch list endpoints to offset pagination with typed <code>items</code> envelopes, and add the previously-unreachable resources. Serialise payloads with <code>model_dump(mode=&quot;json&quot;)</code>.</p>
+  <p class="links"><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py#L570'>cost-estimate path</a> · <a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py#L583'>submit()</a> · <a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py#L613'>modify() → PATCH</a> · <a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py#L988'>QuotesAPI</a> · <a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py#L1053'>TokensAPI</a> · <a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py#L1108'>FeedbackAPI / InfoAPI</a></p>
+</div><div class="commit">
+  <h3 id="c-5f3dab3"><span class="ctype">fix(lab)</span> align high-level wrapper with the new client surface <a class="csha" href="https://github.com/adaptyvbio/adaptyv-sdk/commit/5f3dab3da282bfc9730a338ea6c1f22b05419d74"><code>5f3dab3</code></a></h3>
+  <p>Mechanical reconciliation: <code>confirm()&nbsp;→&nbsp;submit()</code>, read list pages via <code>.items</code>, gate the quote-ready poll on <code>stripe_quote_url</code> (the quote response no longer exposes <code>quote_id</code>), and pass the <code>ResultsStatus</code> enum through.</p>
+  <p class="links"><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/lab.py'>lab.py</a></p>
+</div><div class="commit">
+  <h3 id="c-0dcdc7d"><span class="ctype">test</span> repair suite for the new contract and add alignment regression tests <a class="csha" href="https://github.com/adaptyvbio/adaptyv-sdk/commit/0dcdc7df62039b162d41e8e5399e16551fa92da1"><code>0dcdc7d</code></a></h3>
+  <p>Update mocked routes and asserted payloads to the corrected paths, methods, and serialisation. Add <code>tests/test_spec_alignment.py</code>: 13 respx-mocked regression tests that pin the high-severity divergences so the next drift fails fast.</p>
+  <p class="links"><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/tests/test_spec_alignment.py'>tests/test_spec_alignment.py</a></p>
+</div><div class="commit">
+  <h3 id="c-1b75231"><span class="ctype">build</span> raise minimum Python to 3.11 <a class="csha" href="https://github.com/adaptyvbio/adaptyv-sdk/commit/1b75231e31fca6ffdbd8c3ae49e16478b0f435be"><code>1b75231</code></a></h3>
+  <p>Drop 3.10: bump <code>requires-python</code>, the ruff/mypy targets, and the codegen target to 3.11 so generated enums use the idiomatic <code>StrEnum</code>. <code>uuid</code>/<code>date-time</code> stay <code>str</code>; the gate stays green.</p>
+  <p class="links"><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/pyproject.toml'>pyproject.toml</a></p>
+</div>
+</section>
+
+<section id="decisions">
+<h2>Key decisions</h2>
+<p>Four judgement calls shaped the branch. Each states what it rejected, so the work is auditable.</p>
+<div class="decision">
+  <h3>Hybrid type layer — <span class="stance">regenerated component models + hand-maintained list envelopes</span></h3>
+  <p><span class="lbl">Why</span> The deployed spec defines list responses as anonymous inline objects, so codegen cannot emit named <code>SequenceList</code>/<code>TargetList</code> models the code relies on.</p>
+  <p><span class="lbl">Chosen</span> Keep <code>generated.py</code> codegen-owned for all named components and enums; add <code>types/lists.py</code> with a generic <code>Paginated[T]</code> and per-endpoint item models.</p>
+  <p><span class="lbl">Rejected</span> Raw codegen output (drops the list models, emits <code>Type1</code>–<code>Type7</code>); or hand-editing <code>generated.py</code> (not reproducible via <code>gen:types</code>).</p>
+</div><div class="decision">
+  <h3>uuid / date-time → str — <span class="stance">kept the SDK's string-based public surface</span></h3>
+  <p><span class="lbl">Why</span> Codegen maps <code>format: uuid</code>/<code>date-time</code> to <code>UUID</code>/<code>datetime</code>, which would change the SDK's public return types and ripple through every call site.</p>
+  <p><span class="lbl">Chosen</span> Map both formats to <code>str</code> via <code>--type-mappings</code>. The JSON wire type is still a string; the format is only a refinement, and the prior SDK was string-based.</p>
+  <p><span class="lbl">Rejected</span> Embrace <code>UUID</code>/<code>datetime</code> objects in the public models (richer, but a breaking surface change and far more churn).</p>
+</div><div class="decision">
+  <h3>Python floor 3.11 — <span class="stance">raised the minimum from 3.10</span></h3>
+  <p><span class="lbl">Why</span> Requested. Also lets generated enums use <code>StrEnum</code> (a clean <code>str</code> subclass) rather than plain <code>Enum</code>.</p>
+  <p><span class="lbl">Chosen</span> Bump <code>requires-python</code>, ruff/mypy targets, and the codegen target to 3.11.</p>
+  <p><span class="lbl">Rejected</span> Stay on 3.10 with plain <code>Enum</code> + <code>model_dump(mode=&quot;json&quot;)</code> (kept regardless, and still correct).</p>
+</div><div class="decision">
+  <h3>Enable pydantic mypy plugin — <span class="stance">so strict mypy understands Field() defaults</span></h3>
+  <p><span class="lbl">Why</span> Under <code>strict = true</code> without the plugin, mypy treats every <code>x = Field(default)</code> field as required and raises false call-arg errors.</p>
+  <p><span class="lbl">Chosen</span> Add <code>plugins = [&quot;pydantic.mypy&quot;]</code>; the plugin ships with pydantic.</p>
+  <p><span class="lbl">Rejected</span> Sprinkle redundant kwargs or <code># type: ignore</code> at every model construction (noisy, fragile).</p>
+</div>
+</section>
+
+<section id="fixmap">
+<h2>Findings → fixes</h2>
+<p>The highest-severity divergences and where they are addressed (links resolve to the pushed branch at <code>1b75231</code>).</p>
+<div class="table-wrapper"><table class="fix">
+<tr><td>SDK posted to <code>/experiments/costestimate</code> (404)</td><td>→ <code>/experiments/cost-estimate</code></td><td><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py#L570'>code</a></td></tr><tr><td><code>confirm()</code> hit nonexistent <code>/confirm</code></td><td>→ <code>submit()</code> (<code>/submit</code>) + <code>confirm_quote()</code> (<code>/quote/confirm</code>)</td><td><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py#L583'>code</a></td></tr><tr><td><code>update_priority()</code> hit nonexistent <code>/update-priority</code></td><td>→ <code>modify()</code> via <code>PATCH /experiments/{id}</code></td><td><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py#L613'>code</a></td></tr><tr><td>List models required <code>sequences</code>/<code>updates</code> keys</td><td>→ typed <code>Paginated[T]</code> on the spec's <code>items</code> envelope</td><td><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/types/lists.py#L32'>code</a></td></tr><tr><td><code>UpdatesAPI.list</code> sent stale cursor/experiment_id params</td><td>→ offset pagination (<code>limit/offset/filter/sort</code>)</td><td><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py#L864'>code</a></td></tr><tr><td><code>ExperimentType</code> missing <code>epitope_binning</code>/<code>enzyme_activity</code></td><td>→ regenerated (all 7 members)</td><td><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/types/generated.py'>code</a></td></tr><tr><td><code>SequenceType</code> emitted <code>sc_fv/fab/…</code></td><td>→ regenerated to <code>ScFv/FAB/SingleChain/IgG</code></td><td><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/types/generated.py'>code</a></td></tr><tr><td>quotes / tokens / feedback / info / custom-target unreachable</td><td>→ new resource classes + client accessors</td><td><a href='https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/src/adaptyv/client/foundry.py#L988'>code</a></td></tr>
+</table></div>
+</section>
+
+<section id="breaking">
+<h2>Breaking changes</h2>
+<p>The repo convention is loud, breaking changes over compatibility shims. The user-visible breaks:</p>
+<ul><li><code>experiments.confirm()</code> is removed. Use <code>submit()</code> to advance an experiment and <code>confirm_quote()</code> to accept its quote.</li><li><code>experiments.update_priority()</code> is removed. Use <code>modify()</code> (HTTP <code>PATCH</code>), which carries the full <code>ModifyExpRequest</code>.</li><li><code>experiments.create()</code> no longer accepts <code>experiment_id</code>; the deployed <code>CreateExpRequest</code> dropped that field.</li><li>List methods now return typed <code>Paginated[T]</code> envelopes — iterate <code>.items</code> (was <code>.sequences</code>/<code>.targets</code>/…).</li><li>Minimum Python is now <strong>3.11</strong> (was 3.10).</li></ul>
+</section>
+
+<section id="verify">
+<h2>Verification</h2>
+<p><span class="ok">mise run check is green.</span> ruff clean; mypy <code>strict</code> clean across 12 source files; <strong>97 passed, 39 skipped</strong> (slow/integration tests skip without live credentials). The 13 new regression tests in <a href="https://github.com/adaptyvbio/adaptyv-sdk/blob/1b75231e31fca6ffdbd8c3ae49e16478b0f435be/tests/test_spec_alignment.py"><code>test_spec_alignment.py</code></a> pin the high-severity divergences so the next drift fails fast.</p>
+</section>
+
+<section id="open">
+<h2>Open questions</h2>
+<p>The calls I could not settle alone — your input decides these.</p>
+<ul><li>Dropping Python 3.10 — confirmed acceptable for downstream consumers?</li><li>Keeping ids/timestamps as <code>str</code> in the public models (rather than <code>UUID</code>/<code>datetime</code>) — agree, given the prior SDK was string-based?</li><li>File a follow-up issue for the one deferred low-severity finding — a CI gate that diffs the SDK against the <em>live</em> spec so drift fails automatically? It needs network/token in CI.</li><li><code>tokens.revoke()</code> sends an empty body (the spec defines none; it revokes the authenticating token) — is that the intended ergonomics, or should it take an explicit token id?</li></ul>
+</section>
+
+</article>
+<script>
+// Highlight the TOC entry for the heading currently in view.
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('#md-toc a'));
+  if (!links.length) return;
+  var byId = {};
+  links.forEach(function (a) {
+    var id = a.getAttribute('href').slice(1);
+    byId[id] = a;
+  });
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) {
+        links.forEach(function (a) { a.classList.remove('active'); });
+        var a = byId[e.target.id];
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '0px 0px -70% 0px' });
+  document.querySelectorAll('h1[id], h2[id], h3[id]').forEach(function (h) {
+    observer.observe(h);
+  });
+})();
+
+</script>
+</body></html>
