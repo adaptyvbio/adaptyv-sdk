@@ -3,37 +3,38 @@ python = "3.11"
 
 [tasks.test]
 description = "Run all tests"
-run = "pytest tests/ -v"
+run = "uv run pytest tests/ -v"
 
 [tasks."test:fast"]
 description = "Run fast tests only (<30s)"
-run = "pytest tests/ -v -m 'not slow'"
+run = "uv run pytest tests/ -v -m 'not slow'"
 
 [tasks.lint]
 description = "Run ruff linter"
-run = "ruff check src/ tests/"
+run = "uv run ruff check src/ tests/"
 
 [tasks.format]
 description = "Format code with ruff"
-run = "ruff format src/ tests/"
+run = "uv run ruff format src/ tests/"
 
 [tasks.typecheck]
 description = "Run mypy type checking"
-run = "mypy src/"
+run = "uv run mypy src/"
 
 [tasks."gen:types"]
 description = "Regenerate Pydantic types from Foundry OpenAPI spec"
 run = """
-datamodel-codegen \
-    --url https://foundry-api-public.adaptyvbio.com/openapi.json \
+uv run datamodel-codegen \
+    --url https://foundry-api-public.adaptyvbio.com/api/v1/openapi.json \
     --output src/adaptyv/types/generated.py \
     --output-model-type pydantic_v2.BaseModel \
-    --target-python-version 3.11 \
+    --target-python-version 3.10 \
     --use-standard-collections \
     --use-union-operator \
     --field-constraints \
     --snake-case-field \
-    --strict-nullable
+    --strict-nullable \
+    --type-mappings string+uuid=string string+date-time=string
 """
 
 [tasks.check]

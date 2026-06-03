@@ -69,8 +69,14 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["adaptyv"]
 
+[tool.ruff.lint.per-file-ignores]
+# Integration tests call load_dotenv() before importing the SDK so that
+# credentials are present when module-level fixtures build a client.
+"tests/*" = ["E402"]
+
 [tool.mypy]
 python_version = "3.10"
+plugins = ["pydantic.mypy"]
 strict = true
 warn_return_any = true
 warn_unused_ignores = true
@@ -87,4 +93,9 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests requiring network access",
     "costly: marks tests that incur real costs (create + confirm experiments)",
+]
+
+[dependency-groups]
+dev = [
+    "datamodel-code-generator>=0.59.1",
 ]
