@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from adaptyv.types.generated import ExperimentStatus
+from adaptyv.types.generated import ExperimentStatus, ResultsStatus
 
 
 @dataclass
@@ -41,7 +41,7 @@ class ExperimentResult:
     confirmed_at: str | None = None
 
     # Populated when results ready
-    results_status: str | None = None  # "none" | "partial" | "all"
+    results_status: ResultsStatus | None = None
     results: dict[str, Any] | None = None
 
     # Tracking
