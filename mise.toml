@@ -28,7 +28,7 @@ uv run datamodel-codegen \
     --url https://foundry-api-public.adaptyvbio.com/api/v1/openapi.json \
     --output src/adaptyv/types/generated.py \
     --output-model-type pydantic_v2.BaseModel \
-    --target-python-version 3.10 \
+    --target-python-version 3.11 \
     --use-standard-collections \
     --use-union-operator \
     --field-constraints \
