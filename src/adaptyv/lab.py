@@ -10,7 +10,7 @@ from typing import Any, TypeVar, cast
 from adaptyv.client.foundry import FoundryClientProtocol, get_client
 from adaptyv.config import AdaptyvConfig
 from adaptyv.exceptions import AuthenticationError, NotFoundError, ValidationError
-from adaptyv.types.generated import ExperimentSpec, ExperimentStatus, ExperimentType, Method
+from adaptyv.types.generated import ExperimentSpec, ExperimentType, Method
 from adaptyv.types.internal import ExperimentResult
 from adaptyv.validation import (
     UUID_RE,
@@ -124,11 +124,11 @@ class Lab:
         n_replicates: int,
     ) -> ExperimentSpec:
         """Build ExperimentSpec from parameters."""
-        return ExperimentSpec(  # type: ignore[call-arg]
+        return ExperimentSpec(
             experiment_type=ExperimentType(experiment_type),
             method=Method(method),
             target_id=target_id,
-            sequences=sequences,  # type: ignore[arg-type]
+            sequences=sequences,
             n_replicates=n_replicates,
         )
 
@@ -213,9 +213,9 @@ class Lab:
 
                 # Auto-confirm if requested
                 if auto_confirm:
-                    confirm_response = self._client.experiments.confirm(response.experiment_id)
-                    result.confirmed_at = confirm_response.confirmed_at
-                    result.status = ExperimentStatus(confirm_response.status)
+                    submit_response = self._client.experiments.submit(response.experiment_id)
+                    result.confirmed_at = submit_response.confirmed_at
+                    result.status = submit_response.status
 
                 return result
 
@@ -296,7 +296,7 @@ class Lab:
             experiment_id=exp_info.id,
             experiment_url=exp_info.experiment_url,
             status=exp_info.status,
-            results_status=exp_info.results_status.value,
+            results_status=exp_info.results_status,
         )
 
     def confirm_experiment(
@@ -330,14 +330,14 @@ class Lab:
         if poll:
             self._wait_for_quote(experiment_id, poll_interval, timeout)
 
-        confirm_response = self._client.experiments.confirm(experiment_id)
+        submit_response = self._client.experiments.submit(experiment_id)
         exp_info = self._client.experiments.get(experiment_id)
 
         return ExperimentResult(
             experiment_id=exp_info.id,
             experiment_url=exp_info.experiment_url,
             status=exp_info.status,
-            confirmed_at=confirm_response.confirmed_at,
+            confirmed_at=submit_response.confirmed_at,
         )
 
     def _wait_for_quote(
@@ -362,7 +362,7 @@ class Lab:
         while time.monotonic() < deadline:
             try:
                 quote = self._client.experiments.get_quote(experiment_id)
-                if quote.quote_id:
+                if quote.stripe_quote_url:
                     return
             except NotFoundError:
                 pass  # Quote not yet available
@@ -387,7 +387,7 @@ class Lab:
             List of target dicts
         """
         result = self._client.targets.list(limit=limit, offset=offset)
-        return [t.model_dump() for t in result.targets]
+        return [t.model_dump(mode="json", exclude_none=True) for t in result.items]
 
     def list_all_targets(self, *, limit: int = 50) -> Iterator[dict[str, Any]]:
         """Iterate through all targets from catalog with automatic pagination.
@@ -408,11 +408,11 @@ class Lab:
         offset = 0
         while True:
             result = self._client.targets.list(limit=limit, offset=offset)
-            for target in result.targets:
-                yield target.model_dump()
+            for target in result.items:
+                yield target.model_dump(mode="json", exclude_none=True)
 
             # Check if we've fetched all targets
-            if len(result.targets) < limit:
+            if len(result.items) < limit:
                 break
             offset += limit
 
@@ -427,7 +427,7 @@ class Lab:
             List of matching target dicts
         """
         result = self._client.targets.search(query, limit=limit)
-        return [t.model_dump() for t in result.targets]
+        return [t.model_dump(mode="json", exclude_none=True) for t in result.items]
 
     @property
     def client(self) -> FoundryClientProtocol:
