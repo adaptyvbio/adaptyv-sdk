@@ -6,8 +6,6 @@ Tests all 5 experiment types with proper validation.
 from __future__ import annotations
 
 import os
-import time
-from typing import Any
 
 import pytest
 from dotenv import load_dotenv
@@ -16,7 +14,7 @@ load_dotenv()
 
 from adaptyv import FoundryClient
 from adaptyv.client.foundry import get_client
-from adaptyv.exceptions import APIError, ValidationError
+from adaptyv.exceptions import ValidationError
 from adaptyv.types.generated import ExperimentSpec, ExperimentType, Method
 
 pytestmark = pytest.mark.skipif(
@@ -34,7 +32,7 @@ def client() -> FoundryClient:
 def target_id(client: FoundryClient) -> str:
     """Get first available target."""
     targets = client.targets.list(limit=1)
-    return targets.targets[0].id
+    return targets.items[0].id
 
 
 class TestAffinityExperiments:
@@ -54,7 +52,7 @@ class TestAffinityExperiments:
         result = client.experiments.create(
             name="SDK Test - Affinity BLI",
             experiment_spec=spec,
-                    )
+        )
         assert result.experiment_id
 
     @pytest.mark.slow
@@ -71,7 +69,7 @@ class TestAffinityExperiments:
         result = client.experiments.create(
             name="SDK Test - Affinity SPR",
             experiment_spec=spec,
-                    )
+        )
         assert result.experiment_id
 
     def test_affinity_requires_target(self, client: FoundryClient) -> None:
@@ -85,7 +83,7 @@ class TestAffinityExperiments:
             client.experiments.create(
                 name="Should Fail",
                 experiment_spec=spec,
-                            )
+            )
 
     def test_affinity_requires_concentrations(self, client: FoundryClient, target_id: str) -> None:
         """Affinity without concentrations should fail validation."""
@@ -98,7 +96,7 @@ class TestAffinityExperiments:
             client.experiments.create(
                 name="Should Fail",
                 experiment_spec=spec,
-                            )
+            )
 
 
 class TestScreeningExperiments:
@@ -120,7 +118,7 @@ class TestScreeningExperiments:
         result = client.experiments.create(
             name="SDK Test - Screening BLI",
             experiment_spec=spec,
-                    )
+        )
         assert result.experiment_id
 
     @pytest.mark.slow
@@ -136,7 +134,7 @@ class TestScreeningExperiments:
         result = client.experiments.create(
             name="SDK Test - Screening SPR",
             experiment_spec=spec,
-                    )
+        )
         assert result.experiment_id
 
     def test_screening_requires_target(self, client: FoundryClient) -> None:
@@ -149,7 +147,7 @@ class TestScreeningExperiments:
             client.experiments.create(
                 name="Should Fail",
                 experiment_spec=spec,
-                            )
+            )
 
 
 class TestThermostabilityExperiments:
@@ -166,7 +164,7 @@ class TestThermostabilityExperiments:
         result = client.experiments.create(
             name="SDK Test - Thermostability",
             experiment_spec=spec,
-                    )
+        )
         assert result.experiment_id
 
     @pytest.mark.slow
@@ -181,7 +179,7 @@ class TestThermostabilityExperiments:
         result = client.experiments.create(
             name="SDK Test - Thermostability PBS",
             experiment_spec=spec,
-                    )
+        )
         assert result.experiment_id
 
 
@@ -202,7 +200,7 @@ class TestFluorescenceExperiments:
         result = client.experiments.create(
             name="SDK Test - Fluorescence",
             experiment_spec=spec,
-                    )
+        )
         assert result.experiment_id
 
 
@@ -223,7 +221,7 @@ class TestExpressionExperiments:
         result = client.experiments.create(
             name="SDK Test - Expression",
             experiment_spec=spec,
-                    )
+        )
         assert result.experiment_id
 
 
@@ -254,7 +252,7 @@ class TestSequenceMetadata:
         result = client.experiments.create(
             name="SDK Test - Metadata",
             experiment_spec=spec,
-                    )
+        )
         assert result.experiment_id
 
 
@@ -271,7 +269,7 @@ class TestValidation:
             client.experiments.create(
                 name="Should Fail",
                 experiment_spec=spec,
-                            )
+            )
 
     def test_none_sequences_fails(self, client: FoundryClient) -> None:
         """None sequences should fail validation."""
@@ -283,7 +281,7 @@ class TestValidation:
             client.experiments.create(
                 name="Should Fail",
                 experiment_spec=spec,
-                            )
+            )
 
     def test_invalid_replicates(self, client: FoundryClient) -> None:
         """n_replicates < 1 should fail."""
@@ -296,7 +294,7 @@ class TestValidation:
             client.experiments.create(
                 name="Should Fail",
                 experiment_spec=spec,
-                            )
+            )
 
 
 class TestCostEstimate:
@@ -306,6 +304,7 @@ class TestCostEstimate:
         """Get cost estimate for screening experiment."""
         spec = ExperimentSpec(
             experiment_type=ExperimentType.screening,
+            method=Method.bli,
             target_id=target_id,
             sequences={
                 "clone_1": "QVQLVQSGAEVKKPGAS",
@@ -320,6 +319,7 @@ class TestCostEstimate:
         """Get cost estimate for affinity experiment."""
         spec = ExperimentSpec(
             experiment_type=ExperimentType.affinity,
+            method=Method.bli,
             target_id=target_id,
             sequences={"ab1": "QVQLVQSGAEVKKPGAS"},
             antigen_concentrations=[1e-9, 1e-8, 1e-7],
@@ -345,20 +345,20 @@ class TestExperimentsListFilters:
     def test_list_with_limit(self, client: FoundryClient) -> None:
         """Test listing with limit parameter."""
         result = client.experiments.list(limit=5)
-        assert hasattr(result, "experiments")
-        assert len(result.experiments) <= 5
+        assert hasattr(result, "items")
+        assert len(result.items) <= 5
 
     def test_list_with_search(self, client: FoundryClient) -> None:
         """Test listing with search filter."""
         result = client.experiments.list(search="SDK Test", limit=10)
-        assert hasattr(result, "experiments")
+        assert hasattr(result, "items")
 
     def test_list_with_status(self, client: FoundryClient) -> None:
-        """Test listing with status filter."""
-        result = client.experiments.list(status="done", limit=10)
-        assert hasattr(result, "experiments")
+        """Test listing with a status filter expression."""
+        result = client.experiments.list(filter="eq(status,done)", limit=10)
+        assert hasattr(result, "items")
 
     def test_list_with_multiple_statuses(self, client: FoundryClient) -> None:
-        """Test listing with multiple status filters (comma-separated)."""
-        result = client.experiments.list(status="done,in_production", limit=10)
-        assert hasattr(result, "experiments")
+        """Test listing with a multi-status filter expression."""
+        result = client.experiments.list(filter="in(status,done,in_production)", limit=10)
+        assert hasattr(result, "items")

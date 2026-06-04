@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly drift check against the live spec (Mondays 06:00 UTC).
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+env:
+  # Trust the repo's mise config non-interactively in CI.
+  MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+
+jobs:
+  check:
+    name: lint · types · fast tests (offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: uv sync --extra dev
+      - run: uv run ruff check src tests
+      - run: uv run ruff format --check src tests
+      - run: uv run mypy src
+      - run: mise run test:fast
+
+  spec-drift:
+    name: openapi drift (types · contract)
+    runs-on: ubuntu-latest
+    # The spec is public, so no credentials are needed.
+    env:
+      ADAPTYV_API_URL: https://foundry-api-public.adaptyvbio.com/api/v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: uv sync --extra dev
+      # Fail if the committed types are stale versus the live spec.
+      - run: mise run gen:check
+      # Assert the deployed version still matches and the client covers every path.
+      - run: uv run pytest -m integration tests/test_spec_contract.py -v

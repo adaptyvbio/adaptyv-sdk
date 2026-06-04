@@ -13,6 +13,10 @@ DEFAULT_RETRIES = 3
 # Default API URL
 FOUNDRY_API_URL = "https://foundry-api-public.adaptyvbio.com/api/v1"
 
+# Deployed OpenAPI info.version this SDK targets. Source of truth:
+# https://foundry-api-public.adaptyvbio.com/api/v1/openapi.json
+FOUNDRY_SPEC_VERSION = "0.0.2"
+
 # Retry configuration defaults (exponential backoff)
 DEFAULT_RETRY_MAX_ATTEMPTS = 3
 DEFAULT_RETRY_BACKOFF_FACTOR = 2.0

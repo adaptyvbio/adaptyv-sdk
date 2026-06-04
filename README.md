@@ -60,6 +60,7 @@ print(f"Experiment: {result.experiment_url}")
 - Retries on failure with exponential backoff
 - Type hints throughout
 - Context managers for cleanup
+- Requires Python 3.11+
 
 ---
 
@@ -151,7 +152,7 @@ client = FoundryClient(api_key="...", base_url="https://foundry-api-public.adapt
 
 # Retrieve results for a completed experiment
 results = client.experiments.get_results("experiment-uuid")
-for result in results.results:
+for result in results.items:
     print(f"{result.title}: {result.result_type}")
 ```
 
@@ -166,8 +167,13 @@ from adaptyv import FoundryClient
 
 client = FoundryClient(api_key="...", base_url="https://foundry-api-public.adaptyvbio.com/api/v1")
 
-# List experiments
+# List experiments (paginated; iterate .items)
 experiments = client.experiments.list()
+for exp in experiments.items:
+    print(exp.code, exp.status)
+
+# Filter and sort (grammar: eq(field,value), in(field,a,b), and(...), or(...))
+done = client.experiments.list(filter="eq(status,done)", sort="-created_at")
 
 # Get cost estimate before creating
 estimate = client.experiments.cost_estimate({
@@ -191,17 +197,32 @@ updates = client.experiments.list_updates("experiment-uuid")
 ## Development
 
 ```bash
-# Install dev dependencies
-pip install -e ".[dev]"
+# Install dependencies (uses uv)
+uv sync --extra dev
 
-# Run tests
-pytest
+# Run all checks (lint, type-check, fast tests)
+mise run check
 
-# Lint and format
-ruff check src tests
-ruff format src tests
-
-# Type check
-mypy src
+# Or run individually
+uv run pytest
+uv run ruff check src tests
+uv run mypy src
 ```
+
+### Staying in sync with the API
+
+The SDK is pegged to the deployed OpenAPI spec
+(`https://foundry-api-public.adaptyvbio.com/api/v1/openapi.json`):
+
+- `src/adaptyv/types/generated.py` is generated from the spec — don't edit it by
+  hand; run `mise run gen:types` to rebuild it (output is deterministic).
+- `mise run gen:check` regenerates and diffs, failing if the committed types are
+  stale versus the live spec.
+- `FOUNDRY_SPEC_VERSION` records the targeted `info.version`. The contract tests
+  in `tests/test_spec_contract.py` assert the deployed version still matches and
+  that the client implements exactly the spec's endpoints.
+- CI runs the offline checks on every push and the drift checks on a schedule,
+  so an API change surfaces as a failed build instead of silent drift. When it
+  fires: run `mise run gen:types`, bump `FOUNDRY_SPEC_VERSION`, add any new
+  client method, and commit.
 

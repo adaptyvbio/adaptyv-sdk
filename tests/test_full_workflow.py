@@ -16,7 +16,7 @@ load_dotenv()
 
 from adaptyv import FoundryClient
 from adaptyv.client.foundry import get_client
-from adaptyv.exceptions import APIError, NotFoundError
+from adaptyv.exceptions import NotFoundError
 from adaptyv.types.generated import (
     ExperimentSpec,
     ExperimentStatus,
@@ -42,7 +42,7 @@ def client() -> FoundryClient:
 def target_id(client: FoundryClient) -> str:
     """Get first available target."""
     targets = client.targets.list(limit=1)
-    return targets.targets[0].id
+    return targets.items[0].id
 
 
 def wait_for_experiment(
@@ -126,7 +126,7 @@ class TestAffinityWorkflow:
         created = client.experiments.create(
             name="SDK Full Test - Affinity BLI",
             experiment_spec=spec,
-                    )
+        )
         assert created.experiment_id
         print(f"Created experiment: {created.experiment_id}")
 
@@ -136,8 +136,11 @@ class TestAffinityWorkflow:
         assert quote.amount_total > 0
 
         # 3. Confirm experiment
-        confirmed = client.experiments.confirm(created.experiment_id)
-        assert confirmed.status == "confirmed"
+        confirmed = client.experiments.submit(created.experiment_id)
+        assert confirmed.status not in (
+            ExperimentStatus.draft,
+            ExperimentStatus.waiting_for_confirmation,
+        )
         print(f"Confirmed at: {confirmed.confirmed_at}")
 
         # 4. Verify status changed
@@ -158,10 +161,13 @@ class TestAffinityWorkflow:
         created = client.experiments.create(
             name="SDK Full Test - Affinity SPR",
             experiment_spec=spec,
-                    )
-        quote = wait_for_quote(client, created.experiment_id)
-        confirmed = client.experiments.confirm(created.experiment_id)
-        assert confirmed.status == "confirmed"
+        )
+        wait_for_quote(client, created.experiment_id)
+        confirmed = client.experiments.submit(created.experiment_id)
+        assert confirmed.status not in (
+            ExperimentStatus.draft,
+            ExperimentStatus.waiting_for_confirmation,
+        )
 
 
 class TestScreeningWorkflow:
@@ -183,10 +189,13 @@ class TestScreeningWorkflow:
         created = client.experiments.create(
             name="SDK Full Test - Screening BLI",
             experiment_spec=spec,
-                    )
-        quote = wait_for_quote(client, created.experiment_id)
-        confirmed = client.experiments.confirm(created.experiment_id)
-        assert confirmed.status == "confirmed"
+        )
+        wait_for_quote(client, created.experiment_id)
+        confirmed = client.experiments.submit(created.experiment_id)
+        assert confirmed.status not in (
+            ExperimentStatus.draft,
+            ExperimentStatus.waiting_for_confirmation,
+        )
 
     def test_screening_spr_full_workflow(self, client: FoundryClient, target_id: str) -> None:
         """Create and confirm SPR screening experiment."""
@@ -200,10 +209,13 @@ class TestScreeningWorkflow:
         created = client.experiments.create(
             name="SDK Full Test - Screening SPR",
             experiment_spec=spec,
-                    )
-        quote = wait_for_quote(client, created.experiment_id)
-        confirmed = client.experiments.confirm(created.experiment_id)
-        assert confirmed.status == "confirmed"
+        )
+        wait_for_quote(client, created.experiment_id)
+        confirmed = client.experiments.submit(created.experiment_id)
+        assert confirmed.status not in (
+            ExperimentStatus.draft,
+            ExperimentStatus.waiting_for_confirmation,
+        )
 
 
 class TestThermostabilityWorkflow:
@@ -223,10 +235,13 @@ class TestThermostabilityWorkflow:
         created = client.experiments.create(
             name="SDK Full Test - Thermostability",
             experiment_spec=spec,
-                    )
-        quote = wait_for_quote(client, created.experiment_id)
-        confirmed = client.experiments.confirm(created.experiment_id)
-        assert confirmed.status == "confirmed"
+        )
+        wait_for_quote(client, created.experiment_id)
+        confirmed = client.experiments.submit(created.experiment_id)
+        assert confirmed.status not in (
+            ExperimentStatus.draft,
+            ExperimentStatus.waiting_for_confirmation,
+        )
 
 
 class TestFluorescenceWorkflow:
@@ -245,10 +260,13 @@ class TestFluorescenceWorkflow:
         created = client.experiments.create(
             name="SDK Full Test - Fluorescence",
             experiment_spec=spec,
-                    )
-        quote = wait_for_quote(client, created.experiment_id)
-        confirmed = client.experiments.confirm(created.experiment_id)
-        assert confirmed.status == "confirmed"
+        )
+        wait_for_quote(client, created.experiment_id)
+        confirmed = client.experiments.submit(created.experiment_id)
+        assert confirmed.status not in (
+            ExperimentStatus.draft,
+            ExperimentStatus.waiting_for_confirmation,
+        )
 
 
 class TestExpressionWorkflow:
@@ -267,10 +285,13 @@ class TestExpressionWorkflow:
         created = client.experiments.create(
             name="SDK Full Test - Expression",
             experiment_spec=spec,
-                    )
-        quote = wait_for_quote(client, created.experiment_id)
-        confirmed = client.experiments.confirm(created.experiment_id)
-        assert confirmed.status == "confirmed"
+        )
+        wait_for_quote(client, created.experiment_id)
+        confirmed = client.experiments.submit(created.experiment_id)
+        assert confirmed.status not in (
+            ExperimentStatus.draft,
+            ExperimentStatus.waiting_for_confirmation,
+        )
 
 
 class TestConfirmedFlagWorkflow:

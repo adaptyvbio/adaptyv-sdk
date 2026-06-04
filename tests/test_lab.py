@@ -17,12 +17,16 @@ def mock_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def make_experiment_response(
-    experiment_id: str = "exp-123",
+    experiment_id: str = "11111111-1111-1111-1111-111111111111",
     name: str = "Test",
     experiment_url: str = "https://app.example.com/exp/123",
     experiment_type: str = "thermostability",
 ) -> dict:
-    """Create a mock experiment response."""
+    """Create a mock experiment response.
+
+    ``ExpInfo.id`` is UUID-typed in the deployed spec, so the default id must be
+    a valid UUID string.
+    """
     return {
         "id": experiment_id,
         "name": name,
@@ -214,8 +218,14 @@ class TestLabSingleton:
             return_value=Response(
                 200,
                 json={
-                    "targets": [
-                        {"id": "t1", "name": "Target 1", "vendor_name": "V", "catalog_number": "C"}
+                    "items": [
+                        {
+                            "id": "t1",
+                            "name": "Target 1",
+                            "vendor_name": "V",
+                            "catalog_number": "C",
+                            "url": "https://catalog.example.com/t1",
+                        }
                     ],
                     "total": 1,
                     "count": 1,
@@ -239,9 +249,21 @@ class TestListAllTargets:
             return_value=Response(
                 200,
                 json={
-                    "targets": [
-                        {"id": "t1", "name": "Target 1", "vendor_name": "V", "catalog_number": "C1"},
-                        {"id": "t2", "name": "Target 2", "vendor_name": "V", "catalog_number": "C2"},
+                    "items": [
+                        {
+                            "id": "t1",
+                            "name": "Target 1",
+                            "vendor_name": "V",
+                            "catalog_number": "C1",
+                            "url": "https://catalog.example.com/t1",
+                        },
+                        {
+                            "id": "t2",
+                            "name": "Target 2",
+                            "vendor_name": "V",
+                            "catalog_number": "C2",
+                            "url": "https://catalog.example.com/t2",
+                        },
                     ],
                     "total": 2,
                     "count": 2,
@@ -265,9 +287,21 @@ class TestListAllTargets:
             return_value=Response(
                 200,
                 json={
-                    "targets": [
-                        {"id": "t1", "name": "Target 1", "vendor_name": "V", "catalog_number": "C1"},
-                        {"id": "t2", "name": "Target 2", "vendor_name": "V", "catalog_number": "C2"},
+                    "items": [
+                        {
+                            "id": "t1",
+                            "name": "Target 1",
+                            "vendor_name": "V",
+                            "catalog_number": "C1",
+                            "url": "https://catalog.example.com/t1",
+                        },
+                        {
+                            "id": "t2",
+                            "name": "Target 2",
+                            "vendor_name": "V",
+                            "catalog_number": "C2",
+                            "url": "https://catalog.example.com/t2",
+                        },
                     ],
                     "total": 3,
                     "count": 2,
@@ -279,8 +313,14 @@ class TestListAllTargets:
             return_value=Response(
                 200,
                 json={
-                    "targets": [
-                        {"id": "t3", "name": "Target 3", "vendor_name": "V", "catalog_number": "C3"},
+                    "items": [
+                        {
+                            "id": "t3",
+                            "name": "Target 3",
+                            "vendor_name": "V",
+                            "catalog_number": "C3",
+                            "url": "https://catalog.example.com/t3",
+                        },
                     ],
                     "total": 3,
                     "count": 1,

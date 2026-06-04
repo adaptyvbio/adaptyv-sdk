@@ -1,31 +1,32 @@
 [tools]
 python = "3.11"
+uv = "latest"
 
 [tasks.test]
 description = "Run all tests"
-run = "pytest tests/ -v"
+run = "uv run pytest tests/ -v"
 
 [tasks."test:fast"]
-description = "Run fast tests only (<30s)"
-run = "pytest tests/ -v -m 'not slow'"
+description = "Run fast tests only (<30s), never the costly create+confirm tests"
+run = "uv run pytest tests/ -v -m 'not slow and not costly'"
 
 [tasks.lint]
 description = "Run ruff linter"
-run = "ruff check src/ tests/"
+run = "uv run ruff check src/ tests/"
 
 [tasks.format]
 description = "Format code with ruff"
-run = "ruff format src/ tests/"
+run = "uv run ruff format src/ tests/"
 
 [tasks.typecheck]
 description = "Run mypy type checking"
-run = "mypy src/"
+run = "uv run mypy src/"
 
 [tasks."gen:types"]
 description = "Regenerate Pydantic types from Foundry OpenAPI spec"
 run = """
-datamodel-codegen \
-    --url https://foundry-api-public.adaptyvbio.com/openapi.json \
+uv run datamodel-codegen \
+    --url https://foundry-api-public.adaptyvbio.com/api/v1/openapi.json \
     --output src/adaptyv/types/generated.py \
     --output-model-type pydantic_v2.BaseModel \
     --target-python-version 3.11 \
@@ -33,8 +34,15 @@ datamodel-codegen \
     --use-union-operator \
     --field-constraints \
     --snake-case-field \
-    --strict-nullable
+    --strict-nullable \
+    --type-mappings string+uuid=string string+date-time=string \
+    --disable-timestamp
 """
+
+[tasks."gen:check"]
+description = "Fail if committed generated.py is stale vs the live OpenAPI spec"
+depends = ["gen:types"]
+run = "git diff --exit-code -- src/adaptyv/types/generated.py || { echo 'generated.py is stale: run mise run gen:types then commit'; exit 1; }"
 
 [tasks.check]
 description = "Run all checks (lint, typecheck, test:fast)"
