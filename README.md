@@ -58,6 +58,7 @@ print(f"Experiment: {result.experiment_url}")
 
 - Picks up `ADAPTYV_API_KEY` and `ADAPTYV_API_URL` from environment
 - Retries on failure with exponential backoff
+- Signature verification for incoming webhooks
 - Type hints throughout
 - Context managers for cleanup
 - Requires Python 3.11+
@@ -156,6 +157,87 @@ for result in results.items:
     print(f"{result.title}: {result.result_type}")
 ```
 
+### Verify webhooks
+
+Pass a `webhook_url` when you create an experiment and Foundry POSTs status updates
+to it instead of making you poll. Every delivery is signed, so check the signature
+before trusting the payload:
+
+```python
+from adaptyv.exceptions import WebhookPayloadError, WebhookVerificationError
+from adaptyv.webhooks import verify
+
+try:
+    # raw_body must be the bytes that arrived, not a parsed or re-serialized payload
+    event = verify(raw_body, request_headers, WEBHOOK_SECRET)
+except WebhookVerificationError:
+    ...  # not from Foundry, or damaged in transit: reject it
+except WebhookPayloadError:
+    ...  # signed by Foundry, but the envelope did not parse: log it, let it retry
+
+print(event.event)        # "experiment_update"
+print(event.delivery_id)  # "019b8da3-4a91-16c6-fa94-619212bee6a6"
+print(event.payload["data"]["experiment_code"])
+```
+
+`verify` never returns a boolean. It raises, and which exception it raises is what
+you branch on:
+
+| Exception | Meaning | Answer with |
+| --- | --- | --- |
+| `WebhookVerificationError` | A missing or malformed `X-Adaptyv-Signature`, a signature that does not match the body, an empty secret, or a body that is not raw bytes. The delivery never proved it came from Foundry. | 4xx |
+| `WebhookPayloadError` | The signature checked out, but the envelope was not readable JSON carrying an `event` and a `delivery_id`. | 5xx, or accept and log |
+
+The split matters because 4xx is permanent in the retry model. Answering 4xx to a
+genuinely signed delivery whose shape you did not expect throws away a real event and
+tells Foundry never to send it again. The two are siblings rather than parent and
+child, so catching one cannot swallow the other by accident.
+
+`event.payload` is the whole envelope exactly as it arrived, so fields the SDK does
+not know about pass through untouched.
+
+With FastAPI:
+
+```python
+import logging
+import os
+
+from fastapi import FastAPI, Request, Response
+
+from adaptyv.exceptions import WebhookPayloadError, WebhookVerificationError
+from adaptyv.webhooks import verify
+
+app = FastAPI()
+WEBHOOK_SECRET = os.environ["WEBHOOK_SECRET"]
+
+
+@app.post("/foundry-hook")
+async def foundry_hook(request: Request) -> Response:
+    try:
+        event = verify(await request.body(), request.headers, WEBHOOK_SECRET)
+    except WebhookVerificationError:
+        return Response(status_code=400)  # permanent, and correctly so
+    except WebhookPayloadError:
+        logging.exception("unreadable webhook envelope")
+        return Response(status_code=500)  # genuinely ours, so let it come back
+
+    handle(event)  # your code, keyed on event.delivery_id
+    return Response(status_code=200)
+```
+
+`await request.body()` hands back the raw bytes. Reading `await request.json()` and
+re-serializing it produces different bytes than the ones that were signed, so the
+signature would never match. The equivalent accessor is `request.get_data()` on
+Flask and `request.body` on Django.
+
+**Handlers have to be idempotent.** A delivery is retried up to three times with
+exponential backoff on network errors and 5xx responses, so a handler that fails
+once is guaranteed to see the same event again. `event.delivery_id` is stable across
+those attempts, which makes it the key to deduplicate on in whatever store you
+already have. The SDK deliberately does not keep one for you. Return 2xx to
+acknowledge a delivery; a 4xx tells Foundry the failure is permanent and stops the
+retries.
+
 ---
 
 ## Examples
@@ -225,4 +307,3 @@ The SDK is pegged to the deployed OpenAPI spec
   so an API change surfaces as a failed build instead of silent drift. When it
   fires: run `mise run gen:types`, bump `FOUNDRY_SPEC_VERSION`, add any new
   client method, and commit.
-
