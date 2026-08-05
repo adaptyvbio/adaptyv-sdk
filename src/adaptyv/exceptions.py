@@ -7,7 +7,9 @@ Exception hierarchy:
     │   ├── NotFoundError (404, resource not found)
     │   └── RateLimitError (429, rate limit exceeded with retry_after)
     ├── ValidationError (invalid input parameters)
-    └── PermissionDeniedError (API key lacks create_experiment permission)
+    ├── PermissionDeniedError (API key lacks create_experiment permission)
+    ├── WebhookVerificationError (webhook delivery could not be trusted)
+    └── WebhookPayloadError (webhook delivery was trusted but unreadable)
 """
 
 from __future__ import annotations
@@ -144,3 +146,28 @@ class PermissionDeniedError(APIError):
             request_id=request_id,
             request_path=request_path,
         )
+
+
+class WebhookVerificationError(AdaptyvError):
+    """Webhook delivery could not be trusted.
+
+    Raised by adaptyv.webhooks.verify when a delivery fails to prove it came
+    from Foundry: a bad, missing, or malformed signature, an empty secret, or a
+    body that is not raw bytes. Handlers should answer 4xx, which the API
+    treats as permanent and does not retry, because nothing about resending an
+    unverifiable request would make it verify.
+    """
+
+
+class WebhookPayloadError(AdaptyvError):
+    """Webhook delivery was authentic but its envelope could not be read.
+
+    Raised by adaptyv.webhooks.verify only after the signature has checked out,
+    so the delivery provably came from Foundry and only its shape is at issue.
+    Handlers should answer 5xx or accept and log, never 4xx: a permanent
+    rejection discards a real event and tells the API never to send it again.
+
+    Deliberately a sibling of WebhookVerificationError rather than a subclass,
+    so that a handler catching the verification error to answer 4xx cannot
+    swallow this one by accident.
+    """

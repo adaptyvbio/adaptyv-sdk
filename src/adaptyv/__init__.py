@@ -12,6 +12,8 @@ from adaptyv.exceptions import (
     PermissionDeniedError,
     RateLimitError,
     ValidationError,
+    WebhookPayloadError,
+    WebhookVerificationError,
 )
 
 __all__ = [
@@ -47,6 +49,8 @@ __all__ = [
     "PermissionDeniedError",
     "RateLimitError",
     "ValidationError",
+    "WebhookPayloadError",
+    "WebhookVerificationError",
 ]
 
 # Lazy import mapping: name -> (module_path, attribute_name)
